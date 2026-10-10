@@ -1,0 +1,435 @@
+<title>Session Routing Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: control strip, then the network stage (users → load balancer → servers → session store) with server cards below; missions + log in a side column. */
+:root {
+  --bg: #eef2f7; --surface: #ffffff; --surface-2: #f6f8fb; --ink: #142033; --muted: #586579; --line: #d3dae4;
+  --accent: #2f55e4; --ok: #0b8f6c; --fail: #c62828; --store: #7a3fc4; --warn: #c27800;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c121c; --surface: #141c29; --surface-2: #1a2433; --ink: #e5eaf2; --muted: #95a2b6; --line: #2a374b;
+  --accent: #8aa4ff; --ok: #3fd0a6; --fail: #ff6b6b; --store: #b993ff; --warn: #f2b443; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0c121c; --surface: #141c29; --surface-2: #1a2433; --ink: #e5eaf2; --muted: #95a2b6; --line: #2a374b;
+  --accent: #8aa4ff; --ok: #3fd0a6; --fail: #ff6b6b; --store: #b993ff; --warn: #f2b443; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 16px/1.5 var(--body) }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 48px }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em }
+h1 { font-size: clamp(1.8rem, 4vw, 2.6rem) }
+h2 { font-size: 1.15rem }
+.lede { color: var(--muted); max-width: 70ch; margin: 8px 0 0 }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent) }
+header { display: grid; gap: 6px; margin-bottom: 18px }
+.howto { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; font-size: 15px }
+.howto ol { margin: 6px 0 0; padding-left: 1.2em; display: grid; gap: 2px }
+
+.controls { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px }
+.group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.group > .label { font-size: 13px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em }
+button { font: 600 14px/1 var(--body); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; padding: 9px 12px; cursor: pointer }
+button:hover:not(:disabled) { border-color: var(--accent) }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+button:disabled { opacity: .45; cursor: default }
+button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent) }
+button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden }
+.seg button { border: 0; border-radius: 0 }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; margin-top: 18px }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr) } }
+.stage { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0 }
+.stage svg { width: 100%; height: auto; display: block }
+.node { fill: var(--surface-2); stroke: var(--line); stroke-width: 2 }
+.node.server { stroke: var(--accent) }
+.node.dead { stroke: var(--fail); stroke-dasharray: 6 5; opacity: .6 }
+.node.store { stroke: var(--store) }
+.node.flash-ok { stroke: var(--ok); stroke-width: 4 }
+.node.flash-fail { stroke: var(--fail); stroke-width: 4 }
+.svg-text { fill: var(--ink); font: 600 15px var(--body) }
+.svg-sub { fill: var(--muted); font: 12px var(--mono) }
+.wire { stroke: var(--line); stroke-width: 2.5; fill: none }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-top: 12px }
+.scard { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: grid; gap: 6px; min-width: 0 }
+.scard.dead { border-style: dashed; border-color: var(--fail) }
+.scard h3 { font-size: 14px; display: flex; justify-content: space-between; gap: 6px }
+.scard h3 span { font: 12px var(--mono); color: var(--muted) }
+.scard .sess { font: 12px var(--mono) }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden }
+.bar i { display: block; height: 100%; background: var(--accent); transition: width .3s }
+.scard button { padding: 6px 10px; font-size: 13px; justify-self: start }
+
+.users { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px }
+@media (max-width: 640px) { .users { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+.ucard { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px }
+.ucard b { font-family: var(--display); font-size: 15px }
+.ucard .st { font-family: var(--mono); font-size: 12px }
+.ucard .in { color: var(--ok) } .ucard .out { color: var(--muted) }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px }
+@media (max-width: 640px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+.stat { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px }
+.stat b { display: block; font: 600 20px var(--mono); font-variant-numeric: tabular-nums }
+.stat span { font-size: 12px; color: var(--muted) }
+
+aside { display: grid; gap: 16px; align-content: start; min-width: 0 }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0 }
+.missions { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 10px }
+.mission { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: 14px }
+.mission .tick { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font: 700 12px var(--mono); color: var(--bg) }
+.mission.done .tick { background: var(--ok); border-color: var(--ok) }
+.mission.done .mtitle { text-decoration: line-through; text-decoration-color: var(--muted) }
+.mission .mhint { color: var(--muted); font-size: 13px }
+.log { list-style: none; padding: 0; margin: 10px 0 0; max-height: 320px; overflow-y: auto; display: grid; gap: 4px; font: 12px/1.4 var(--mono) }
+.log li { border-left: 3px solid var(--line); padding-left: 8px }
+.log .ok { border-color: var(--ok) } .log .fail { border-color: var(--fail) } .log .info { border-color: var(--accent) } .log .store { border-color: var(--store) }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); margin-top: 8px }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Chapter 1 · Stateless web tier · Lab</span>
+    <h1>Session Routing Lab</h1>
+    <p class="lede">Four users visit a site behind a load balancer. Their first request logs them in and creates a session. Where that session is stored decides what happens when servers are busy, added, or crash.</p>
+  </header>
+
+  <div class="howto">
+    <b>How to use:</b>
+    <ol>
+      <li>Click a <b>User</b> button. Their first request logs them in; later requests need that session.</li>
+      <li>Choose the design: <b>Stateful</b> keeps sessions inside each server. <b>Stateless</b> keeps them in a shared store.</li>
+      <li>Change how the load balancer routes (<b>Round robin</b> or <b>Sticky</b>), crash servers from their cards, add servers, or start a traffic spike.</li>
+      <li>Follow the <b>Missions</b> on the right. The <b>log</b> explains every request in plain words.</li>
+    </ol>
+  </div>
+
+  <div class="controls">
+    <div class="group">
+      <span class="label">Send a request</span>
+      <button class="primary" data-user="A">User A</button>
+      <button class="primary" data-user="B">User B</button>
+      <button class="primary" data-user="C">User C</button>
+      <button class="primary" data-user="D">User D</button>
+    </div>
+    <div class="group">
+      <span class="label">Design</span>
+      <div class="seg" role="group" aria-label="Design">
+        <button id="mStateful" aria-pressed="true">Stateful</button>
+        <button id="mStateless" aria-pressed="false">Stateless</button>
+      </div>
+    </div>
+    <div class="group">
+      <span class="label">Load balancer</span>
+      <div class="seg" role="group" aria-label="Routing">
+        <button id="rRR" aria-pressed="true">Round robin</button>
+        <button id="rSticky" aria-pressed="false">Sticky</button>
+      </div>
+    </div>
+    <div class="group">
+      <span class="label">Servers</span>
+      <button id="add">Add server</button>
+      <button id="autoscale" aria-pressed="false">Autoscaling</button>
+      <button id="spike">Traffic spike</button>
+      <button id="reset">Reset</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <section class="stage" aria-label="Network">
+      <svg id="svg" viewBox="0 0 900 450" role="img" aria-label="Users, load balancer, web servers and session store">
+        <g id="static"></g><g id="pk"></g>
+      </svg>
+      <div class="legend">
+        <span><i style="background:var(--accent)"></i>request</span>
+        <span><i style="background:var(--ok)"></i>worked</span>
+        <span><i style="background:var(--fail)"></i>session not found, user logged out</span>
+        <span><i style="background:var(--store)"></i>reading or writing the shared session store</span>
+      </div>
+      <div class="users" id="users"></div>
+      <div class="cards" id="cards"></div>
+      <div class="stats">
+        <div class="stat"><b id="sReq">0</b><span>requests</span></div>
+        <div class="stat"><b id="sOk">0</b><span>worked</span></div>
+        <div class="stat"><b id="sOut">0</b><span>users logged out unexpectedly</span></div>
+        <div class="stat"><b id="sSrv">3</b><span>servers running</span></div>
+      </div>
+    </section>
+    <aside>
+      <div class="panel"><h2>Missions</h2><ul class="missions" id="missions"></ul></div>
+      <div class="panel"><h2>What just happened</h2><ul class="log" id="log" aria-live="polite"></ul></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = s => document.querySelector(s);
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const el = (tag, attrs, parent, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; parent && parent.appendChild(e); return e; };
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const USERS = ['A', 'B', 'C', 'D'], UX = { A: 225, B: 375, C: 525, D: 675 };
+  const MAX_SERVERS = 5, MIN_SERVERS = 2, LOAD_WINDOW = 2000;
+
+  const MISSIONS = [
+    { id: 'login', title: 'Log a user in', hint: 'Click User A. The first request logs A in. In stateful mode the session is stored inside whichever server got the request.' },
+    { id: 'lost', title: 'Get logged out by the load balancer', hint: 'Stay on Stateful + Round robin. Click User A again. The next request lands on a different server that has no session for A.' },
+    { id: 'sticky', title: 'Fix it with sticky sessions', hint: 'Switch the load balancer to Sticky, log A in again, then click A a few times. Every request goes to the same server.' },
+    { id: 'crash', title: 'Crash a server that holds sessions', hint: 'With Stateful + Sticky, crash the server that holds A’s session (button on its card), then click A. A is logged out.' },
+    { id: 'add', title: 'Add a server while users are sticky', hint: 'In Stateful + Sticky with users logged in, click "Add server". Watch the new server’s request count: logged-in users never move to it.' },
+    { id: 'stateless', title: 'Go stateless and hit any server', hint: 'Switch to Stateless and Round robin. Log users in and click them. Every server can answer, because it reads the session from the store.' },
+    { id: 'survive', title: 'Crash a server and lose nobody', hint: 'In Stateless mode, crash a server, then click a logged-in user. The request goes to another server and still works.' },
+    { id: 'autoscale', title: 'Let autoscaling handle a spike', hint: 'In Stateless mode, turn on Autoscaling and press "Traffic spike". Servers are added under load and removed afterwards.' },
+  ];
+
+  let S;
+  function reset() {
+    clearInterval(S?.spikeTimer);
+    S = {
+      mode: 'stateful', sticky: false, autoscale: false, rr: 0, nextId: 4,
+      servers: [1, 2, 3].map(id => ({ id, alive: true, sessions: new Set(), hits: [], served: 0 })),
+      users: Object.fromEntries(USERS.map(u => [u, { loggedIn: false, stickyTo: null }])),
+      store: new Set(), stats: { req: 0, ok: 0, out: 0 }, done: S?.done || new Set(), lastScale: 0, spikeUntil: 0,
+    };
+    ['mStateful', 'rRR'].forEach(id => $('#' + id).setAttribute('aria-pressed', 'true'));
+    ['mStateless', 'rSticky', 'autoscale'].forEach(id => $('#' + id).setAttribute('aria-pressed', 'false'));
+    $('#pk').innerHTML = ''; $('#log').innerHTML = '';
+    log('info', 'Fresh start: 3 servers, stateful design, round-robin load balancer. Nobody is logged in.');
+    render();
+  }
+
+  const alive = () => S.servers.filter(s => s.alive);
+  const sx = i => 450 + (i - (S.servers.length - 1) / 2) * 170;
+  const byId = id => S.servers.find(s => s.id === id);
+  const load = s => s.hits.filter(t => performance.now() - t < LOAD_WINDOW).length;
+
+  function log(kind, msg) {
+    const li = document.createElement('li'); li.className = kind; li.textContent = msg;
+    const ul = $('#log'); ul.prepend(li); while (ul.children.length > 70) ul.lastChild.remove();
+  }
+  function complete(id) {
+    if (S.done.has(id)) return;
+    S.done.add(id); log('info', `Mission done: ${MISSIONS.find(m => m.id === id).title}`); renderMissions();
+  }
+
+  function renderStage() {
+    const g = $('#static'); g.innerHTML = '';
+    USERS.forEach(u => el('path', { class: 'wire', d: `M${UX[u]} 66 L450 126` }, g));
+    S.servers.forEach((s, i) => el('path', { class: 'wire', d: `M450 164 L${sx(i)} 236` }, g));
+    if (S.mode === 'stateless') S.servers.forEach((s, i) => el('path', { class: 'wire', d: `M${sx(i)} 316 L450 372`, style: `stroke:${css('--store')};stroke-dasharray:6 5` }, g));
+    USERS.forEach(u => {
+      const st = S.users[u];
+      el('circle', { class: 'node', cx: UX[u], cy: 42, r: 24, style: st.loggedIn ? `stroke:${css('--ok')}` : '' }, g);
+      el('text', { class: 'svg-text', x: UX[u], y: 48, 'text-anchor': 'middle' }, g, u);
+    });
+    el('rect', { class: 'node', x: 360, y: 126, width: 180, height: 38, rx: 8 }, g);
+    el('text', { class: 'svg-text', x: 450, y: 150, 'text-anchor': 'middle' }, g, S.sticky ? 'Load balancer · sticky' : 'Load balancer · round robin');
+    S.servers.forEach((s, i) => {
+      const x = sx(i);
+      el('rect', { class: `node server ${s.alive ? '' : 'dead'}`, id: 'n' + s.id, x: x - 72, y: 236, width: 144, height: 80, rx: 10 }, g);
+      el('text', { class: 'svg-text', x, y: 260, 'text-anchor': 'middle' }, g, `Server ${s.id}`);
+      const txt = !s.alive ? 'crashed' : S.mode === 'stateless' ? 'no sessions' : s.sessions.size ? `sessions: ${[...s.sessions].join(', ')}` : 'sessions: none';
+      el('text', { class: 'svg-sub', x, y: 282, 'text-anchor': 'middle', fill: s.alive ? '' : css('--fail') }, g, txt);
+      const w = Math.min(1, load(s) / 8) * 110;
+      el('rect', { x: x - 55, y: 294, width: 110, height: 7, rx: 3, fill: css('--line') }, g);
+      el('rect', { x: x - 55, y: 294, width: w, height: 7, rx: 3, fill: w > 80 ? css('--warn') : css('--accent') }, g);
+    });
+    if (S.mode === 'stateless') {
+      el('rect', { class: 'node store', id: 'nstore', x: 280, y: 372, width: 340, height: 60, rx: 10 }, g);
+      el('text', { class: 'svg-text', x: 450, y: 396, 'text-anchor': 'middle' }, g, 'Shared session store (NoSQL)');
+      el('text', { class: 'svg-sub', x: 450, y: 418, 'text-anchor': 'middle', fill: css('--store') }, g, S.store.size ? `sessions: ${[...S.store].join(', ')}` : 'sessions: none');
+    } else {
+      el('text', { class: 'svg-sub', x: 450, y: 400, 'text-anchor': 'middle' }, g, 'Stateful design: each session lives only in the memory of the server that created it');
+    }
+  }
+  function renderCards() {
+    $('#cards').innerHTML = S.servers.map(s => `<div class="scard ${s.alive ? '' : 'dead'}" data-id="${s.id}">
+      <h3>Server ${s.id} <span class="served">${s.alive ? `${s.served} served` : 'crashed'}</span></h3>
+      <div class="sess">${S.mode === 'stateless' ? 'holds no sessions' : s.sessions.size ? 'sessions: ' + [...s.sessions].join(', ') : 'sessions: none'}</div>
+      <div class="bar" title="load"><i style="width:${Math.min(100, load(s) / 8 * 100)}%"></i></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button data-crash="${s.id}">${s.alive ? 'Crash' : 'Restart'}</button>
+        ${S.servers.length > 1 ? `<button data-remove="${s.id}">Remove</button>` : ''}
+      </div></div>`).join('');
+    $('#users').innerHTML = USERS.map(u => {
+      const st = S.users[u];
+      return `<div class="ucard"><b>User ${u}</b><div class="st ${st.loggedIn ? 'in' : 'out'}">${st.loggedIn ? 'logged in' : 'logged out'}</div>
+        <div class="st out">${S.sticky && st.stickyTo ? 'sticky to Server ' + st.stickyTo : '&nbsp;'}</div></div>`;
+    }).join('');
+    $('#sReq').textContent = S.stats.req; $('#sOk').textContent = S.stats.ok; $('#sOut').textContent = S.stats.out;
+    $('#sSrv').textContent = alive().length;
+    $('#add').disabled = S.servers.length >= MAX_SERVERS;
+  }
+  function renderMissions() {
+    $('#missions').innerHTML = MISSIONS.map(m => `<li class="mission ${S.done.has(m.id) ? 'done' : ''}"><span class="tick">${S.done.has(m.id) ? '✓' : ''}</span>
+      <div><div class="mtitle">${m.title}</div><div class="mhint">${m.hint}</div></div></li>`).join('');
+  }
+  function render() { renderStage(); renderCards(); renderMissions(); }
+  function refreshLoad() {
+    renderStage();
+    document.querySelectorAll('.scard').forEach(c => {
+      const s = byId(+c.dataset.id); if (!s) return;
+      c.querySelector('.bar i').style.width = Math.min(100, load(s) / 8 * 100) + '%';
+      c.querySelector('.served').textContent = s.alive ? `${s.served} served` : 'crashed';
+    });
+  }
+
+  function move(points, color) {
+    return new Promise(res => {
+      const c = el('circle', { r: 7, fill: color }, $('#pk'));
+      const segs = []; let total = 0;
+      for (let i = 1; i < points.length; i++) { const l = Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]); segs.push(l); total += l; }
+      const D = reduce ? 1 : Math.max(250, total * 1.6), t0 = performance.now();
+      (function f(now) {
+        let d = Math.min(1, (now - t0) / D) * total, i = 0;
+        while (i < segs.length - 1 && d > segs[i]) { d -= segs[i]; i++; }
+        const a = points[i], b = points[i + 1], p = Math.min(1, d / segs[i]);
+        c.setAttribute('cx', a[0] + (b[0] - a[0]) * p); c.setAttribute('cy', a[1] + (b[1] - a[1]) * p);
+        if (now - t0 < D) requestAnimationFrame(f); else { c.remove(); res(); }
+      })(t0);
+    });
+  }
+  function flash(id, cls) { const n = document.getElementById(id); if (!n) return; n.classList.add(cls); setTimeout(() => n.classList.remove(cls), 600); }
+
+  function pickServer(u) {
+    const up = alive(); if (!up.length) return null;
+    const st = S.users[u];
+    if (S.sticky && st.stickyTo && byId(st.stickyTo)?.alive) return byId(st.stickyTo);
+    const s = up[S.rr++ % up.length];
+    if (S.sticky) st.stickyTo = s.id;
+    return s;
+  }
+
+  async function request(u, quiet) {
+    const st = S.users[u];
+    S.stats.req++;
+    const srv = pickServer(u);
+    if (!srv) { log('fail', `User ${u}: no servers are running. The site is down.`); renderCards(); return; }
+    const i = S.servers.indexOf(srv), x = sx(i);
+    srv.hits.push(performance.now()); srv.served++;
+    await move([[UX[u], 66], [450, 145], [x, 236]], css('--accent'));
+    if (!srv.alive) { log('fail', `User ${u}: Server ${srv.id} crashed while the request was on its way.`); render(); return; }
+    let ok = true, msg;
+    if (!st.loggedIn) {
+      if (S.mode === 'stateless') {
+        await move([[x, 316], [450, 372]], css('--store'));
+        S.store.add(u); flash('nstore', 'flash-ok');
+        await move([[450, 372], [x, 316]], css('--store'));
+        msg = `User ${u}: logged in through Server ${srv.id}. Session saved in the shared store, not on the server.`;
+      } else {
+        srv.sessions.add(u);
+        msg = `User ${u}: logged in through Server ${srv.id}. Session saved in Server ${srv.id}'s memory${S.sticky ? `. Load balancer will keep sending ${u} to Server ${srv.id}.` : '.'}`;
+      }
+      st.loggedIn = true;
+      complete('login');
+    } else if (S.mode === 'stateless') {
+      await move([[x, 316], [450, 372]], css('--store'));
+      ok = S.store.has(u);
+      await move([[450, 372], [x, 316]], css('--store'));
+      msg = `User ${u}: Server ${srv.id} read ${u}'s session from the shared store. Worked.`;
+      if (!S.sticky) complete('stateless');
+      if (S.servers.some(s => !s.alive)) complete('survive');
+    } else if (srv.sessions.has(u)) {
+      msg = `User ${u}: Server ${srv.id} has ${u}'s session in memory. Worked.`;
+      if (S.sticky) complete('sticky');
+    } else {
+      ok = false;
+      const owner = S.servers.find(s => s.sessions.has(u));
+      msg = owner
+        ? `User ${u}: LOGGED OUT. The load balancer sent ${u} to Server ${srv.id}, but ${u}'s session is on Server ${owner.id}.`
+        : `User ${u}: LOGGED OUT. ${u}'s session was in the memory of a server that crashed or was removed, so it is gone. Server ${srv.id} has never seen ${u}.`;
+      st.loggedIn = false; S.stats.out++;
+      if (owner) { owner.sessions.delete(u); complete('lost'); }
+      else complete('crash');
+    }
+    if (ok) S.stats.ok++;
+    flash('n' + srv.id, ok ? 'flash-ok' : 'flash-fail');
+    await move([[x, 236], [450, 145], [UX[u], 66]], css(ok ? '--ok' : '--fail'));
+    if (!quiet || !ok) log(ok ? 'ok' : 'fail', msg);
+    render();
+  }
+
+  function addServer(auto) {
+    if (S.servers.length >= MAX_SERVERS) return false;
+    const s = { id: S.nextId++, alive: true, sessions: new Set(), hits: [], served: 0 };
+    S.servers.push(s);
+    const sticky = USERS.filter(u => S.users[u].loggedIn && S.users[u].stickyTo).length;
+    log('info', `${auto ? 'Autoscaling' : 'You'} added Server ${s.id}.` + (S.mode === 'stateful' && S.sticky && sticky ? ` ${sticky} logged-in user(s) are sticky to old servers and will not move here. Only new logins can use Server ${s.id}.` : S.mode === 'stateless' ? ' It can serve any user right away.' : ''));
+    if (S.mode === 'stateful' && S.sticky && sticky) complete('add');
+    if (auto && S.mode === 'stateless') complete('autoscale');
+    render(); return true;
+  }
+  function removeServer(id, auto) {
+    const s = byId(id); if (!s || S.servers.length <= 1) return;
+    S.servers.splice(S.servers.indexOf(s), 1);
+    const lost = [...s.sessions];
+    log(lost.length ? 'fail' : 'info', `${auto ? 'Autoscaling' : 'You'} removed Server ${s.id}.` + (lost.length ? ` Sessions for ${lost.join(', ')} were in its memory and are gone.` : S.mode === 'stateless' ? ' No sessions lived there, so nobody notices.' : ''));
+    render();
+  }
+
+  document.querySelectorAll('[data-user]').forEach(b => b.addEventListener('click', () => request(b.dataset.user)));
+  $('#cards').addEventListener('click', e => {
+    const c = e.target.closest('[data-crash]'), r = e.target.closest('[data-remove]');
+    if (c) {
+      const s = byId(+c.dataset.crash);
+      if (s.alive) {
+        s.alive = false; const lost = [...s.sessions]; s.sessions.clear();
+        log('fail', `Server ${s.id} crashed.` + (S.mode === 'stateful' ? (lost.length ? ` Sessions for ${lost.join(', ')} lived in its memory and are lost. Those users will be logged out on their next request.` : ' It held no sessions.') : ' It held no sessions, so no user loses anything.'));
+      } else { s.alive = true; log('info', `Server ${s.id} restarted with empty memory.`); }
+      render();
+    }
+    if (r) removeServer(+r.dataset.remove, false);
+  });
+  function setMode(m) {
+    if (S.mode === m) return;
+    S.mode = m;
+    USERS.forEach(u => { S.users[u].loggedIn = false; S.users[u].stickyTo = null; });
+    S.servers.forEach(s => s.sessions.clear()); S.store.clear();
+    $('#mStateful').setAttribute('aria-pressed', m === 'stateful'); $('#mStateless').setAttribute('aria-pressed', m === 'stateless');
+    log('info', m === 'stateless' ? 'Switched to stateless: sessions will be kept in a shared NoSQL store. Everyone must log in again.' : 'Switched to stateful: sessions will be kept inside each server. Everyone must log in again.');
+    render();
+  }
+  $('#mStateful').addEventListener('click', () => setMode('stateful'));
+  $('#mStateless').addEventListener('click', () => setMode('stateless'));
+  function setSticky(v) {
+    S.sticky = v; if (!v) USERS.forEach(u => S.users[u].stickyTo = null);
+    else USERS.forEach(u => { const owner = S.servers.find(s => s.sessions.has(u)); if (owner) S.users[u].stickyTo = owner.id; });
+    $('#rRR').setAttribute('aria-pressed', !v); $('#rSticky').setAttribute('aria-pressed', v);
+    log('info', v ? 'Load balancer now uses sticky sessions: each user always goes to the same server.' : 'Load balancer now uses round robin: each request goes to the next server in turn.');
+    render();
+  }
+  $('#rRR').addEventListener('click', () => setSticky(false));
+  $('#rSticky').addEventListener('click', () => setSticky(true));
+  $('#add').addEventListener('click', () => addServer(false));
+  $('#autoscale').addEventListener('click', e => {
+    S.autoscale = !S.autoscale; e.target.setAttribute('aria-pressed', S.autoscale);
+    log('info', S.autoscale ? `Autoscaling on: add a server when average load is high, remove one when it is low (between ${MIN_SERVERS} and ${MAX_SERVERS}).` : 'Autoscaling off.');
+  });
+  $('#spike').addEventListener('click', () => {
+    clearInterval(S.spikeTimer); S.spikeUntil = performance.now() + 9000;
+    log('info', 'Traffic spike: lots of requests for the next 9 seconds.');
+    S.spikeTimer = setInterval(() => {
+      if (performance.now() > S.spikeUntil) { clearInterval(S.spikeTimer); log('info', 'Traffic spike over.'); return; }
+      request(USERS[Math.floor(Math.random() * 4)], true);
+    }, 110);
+  });
+  $('#reset').addEventListener('click', reset);
+
+  setInterval(() => {
+    if (!S.autoscale) { refreshLoad(); return; }
+    const up = alive(), now = performance.now();
+    const avg = up.reduce((a, s) => a + load(s), 0) / Math.max(1, up.length);
+    if (avg > 5 && now - S.lastScale > 1200 && addServer(true)) S.lastScale = now;
+    else if (avg < 1 && up.length > MIN_SERVERS && now - S.lastScale > 2500 && now > S.spikeUntil) { S.lastScale = now; removeServer(S.servers[S.servers.length - 1].id, true); }
+    refreshLoad();
+  }, 500);
+
+  reset();
+})();
+</script>

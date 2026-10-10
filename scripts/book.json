@@ -1,0 +1,42 @@
+{
+  "title": "System Design, Hands-On",
+  "subtitle": "Interactive notes for System Design Interview by Alex Xu. Read a topic, try it in a lab, then test yourself.",
+  "chapters": [
+    {
+      "num": 1, "title": "Scale From Zero To Millions Of Users", "dir": "ch01",
+      "topics": [
+        {
+          "title": "CDN", "slug": "cdn", "src": "chapter-01-scale/cdn",
+          "pages": [
+            { "file": "cdn-explained.html",    "slug": "1-start-here",  "kind": "Read" },
+            { "file": "cdn-request-lab.html",  "slug": "2-request-lab", "kind": "Try" },
+            { "file": "cdn-self-check.html",   "slug": "3-self-check",  "kind": "Test" }
+          ]
+        },
+        {
+          "title": "Stateless web tier", "slug": "stateless-web-tier", "src": "chapter-01-scale/stateless-web-tier",
+          "pages": [
+            { "file": "stateless-explained.html",   "slug": "1-start-here",       "kind": "Read" },
+            { "file": "session-routing-lab.html",   "slug": "2-session-routing-lab", "kind": "Try" },
+            { "file": "stateless-self-check.html",  "slug": "3-self-check",       "kind": "Test" }
+          ]
+        }
+      ]
+    },
+    { "num": 2,  "title": "Back-of-the-Envelope Estimation" },
+    { "num": 3,  "title": "A Framework For System Design Interviews" },
+    { "num": 4,  "title": "Design A Rate Limiter" },
+    { "num": 5,  "title": "Design Consistent Hashing" },
+    { "num": 6,  "title": "Design A Key-Value Store" },
+    { "num": 7,  "title": "Design A Unique ID Generator In Distributed Systems" },
+    { "num": 8,  "title": "Design A URL Shortener" },
+    { "num": 9,  "title": "Design A Web Crawler" },
+    { "num": 10, "title": "Design A Notification System" },
+    { "num": 11, "title": "Design A News Feed System" },
+    { "num": 12, "title": "Design A Chat System" },
+    { "num": 13, "title": "Design A Search Autocomplete System" },
+    { "num": 14, "title": "Design YouTube" },
+    { "num": 15, "title": "Design Google Drive" },
+    { "num": 16, "title": "The Learning Continues" }
+  ]
+}

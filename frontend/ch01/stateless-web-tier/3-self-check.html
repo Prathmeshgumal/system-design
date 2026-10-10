@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stateless Tier Self-Check · System Design, Hands-On</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%232f55e4%27/%3E%3Cpath d=%27M9 9h14M9 16h14M9 23h9%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/book.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: single reading column; a sticky score strip, then one card per interview-style question. */
+:root {
+  --bg: #eef2f7; --surface: #ffffff; --surface-2: #f6f8fb; --ink: #142033; --muted: #586579; --line: #d3dae4;
+  --accent: #2f55e4; --good: #0b8f6c; --bad: #c62828;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c121c; --surface: #141c29; --surface-2: #1a2433; --ink: #e5eaf2; --muted: #95a2b6; --line: #2a374b;
+  --accent: #8aa4ff; --good: #3fd0a6; --bad: #ff6b6b; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0c121c; --surface: #141c29; --surface-2: #1a2433; --ink: #e5eaf2; --muted: #95a2b6; --line: #2a374b;
+  --accent: #8aa4ff; --good: #3fd0a6; --bad: #ff6b6b; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 17px/1.55 var(--body) }
+.wrap { max-width: 760px; margin: 0 auto; padding-inline: 18px; padding-block: 28px 56px }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em }
+h1 { font-size: clamp(1.8rem, 5vw, 2.5rem) }
+h2 { font-size: 1.1rem; line-height: 1.35 }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent) }
+.lede { color: var(--muted); margin: 8px 0 0 }
+.score { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; margin: 20px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between }
+.score b { font: 600 18px var(--mono); font-variant-numeric: tabular-nums }
+.dots { display: flex; gap: 5px; flex-wrap: wrap }
+.dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line) }
+.dots i.good { background: var(--good) } .dots i.bad { background: var(--bad) }
+.q { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-top: 14px }
+.q .tag { font: 12px var(--mono); color: var(--muted) }
+.opts { display: grid; gap: 8px; margin-top: 12px }
+.opt { text-align: left; font: 16px/1.4 var(--body); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; cursor: pointer }
+.opt:hover:not(:disabled) { border-color: var(--accent) }
+.opt:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.opt:disabled { cursor: default }
+.opt.right { border-color: var(--good); box-shadow: inset 4px 0 0 var(--good) }
+.opt.wrong { border-color: var(--bad); box-shadow: inset 4px 0 0 var(--bad) }
+.why { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); color: var(--ink) }
+.why strong { font-family: var(--display) }
+.why .ref { display: block; color: var(--muted); font-size: 14px; margin-top: 6px }
+button.reset { font: 600 14px var(--body); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; padding: 8px 12px; cursor: pointer }
+.pitch { margin-top: 36px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px }
+.pitch ol { padding-left: 1.2em; margin: 10px 0 0; display: grid; gap: 6px }
+code { font: 0.9em var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px }
+</style>
+</head>
+<body data-page="ch01/stateless-web-tier/3-self-check">
+<div class="bk-bar">
+  <a class="bk-home" href="../../index.html">System Design, Hands-On</a>
+  <span class="bk-crumb">Chapter 1 · Stateless web tier · page 3 of 3</span>
+  <button class="bk-toc-btn" type="button" aria-expanded="false" aria-controls="bk-drawer">Contents</button>
+  <div class="bk-progress" aria-hidden="true"><i style="width:100.0%"></i></div>
+</div>
+<div class="bk-drawer" id="bk-drawer" hidden>
+  <div class="bk-drawer-inner">
+    <div class="bk-drawer-head"><b>Contents</b><button class="bk-close" type="button">Close</button></div>
+    <a class="bk-drawer-home" href="../../index.html">All chapters</a>
+    <p class="bk-toc-ch">Chapter 1 · Scale From Zero To Millions Of Users</p>
+<p class="bk-toc-tp">CDN</p><ol class="bk-toc-list">
+<li><a href="../cdn/1-start-here.html" data-page="ch01/cdn/1-start-here"><span class="bk-kind">Read</span>CDN, Start Here</a></li>
+<li><a href="../cdn/2-request-lab.html" data-page="ch01/cdn/2-request-lab"><span class="bk-kind">Try</span>CDN Request Lab</a></li>
+<li><a href="../cdn/3-self-check.html" data-page="ch01/cdn/3-self-check"><span class="bk-kind">Test</span>CDN Self-Check</a></li>
+</ol>
+<p class="bk-toc-tp">Stateless web tier</p><ol class="bk-toc-list">
+<li><a href="1-start-here.html" data-page="ch01/stateless-web-tier/1-start-here"><span class="bk-kind">Read</span>Stateless Web Tier, Start Here</a></li>
+<li><a href="2-session-routing-lab.html" data-page="ch01/stateless-web-tier/2-session-routing-lab"><span class="bk-kind">Try</span>Session Routing Lab</a></li>
+<li><a href="3-self-check.html" aria-current="page" data-page="ch01/stateless-web-tier/3-self-check"><span class="bk-kind">Test</span>Stateless Tier Self-Check</a></li>
+</ol>
+  </div>
+</div>
+<main class="bk-page">
+<div class="wrap">
+  <span class="eyebrow">Chapter 1 · Stateless web tier · Self-check</span>
+  <h1>Stateless Tier Self-Check</h1>
+  <p class="lede">Ten questions, phrased the way an interviewer might ask them. Pick an answer to see why it is right or wrong. Any question you miss is a good one to bring to our doubt session.</p>
+
+  <div class="score">
+    <span>Score <b id="score">0 / 10</b></span>
+    <span class="dots" id="dots"></span>
+    <button class="reset" id="reset">Start over</button>
+  </div>
+
+  <div id="quiz"></div>
+
+  <section class="pitch">
+    <h2>Say it in an interview, in about 60 seconds</h2>
+    <ol>
+      <li>To scale the web tier horizontally, any server must be able to handle any request.</li>
+      <li>So I keep web servers stateless: no session data in their memory.</li>
+      <li>Sessions go in a shared store that every server reads. The book uses NoSQL because it scales easily; Redis is also common.</li>
+      <li>That removes the need for sticky sessions. A server crash logs nobody out, and adding servers helps everyone immediately.</li>
+      <li>It makes autoscaling easy: add web servers under load, remove them when traffic drops.</li>
+      <li>The cost is an extra lookup per request, and the session store must be fast and replicated so it is not a single point of failure.</li>
+    </ol>
+  </section>
+</div>
+
+<script>
+(() => {
+  const Q = [
+    { tag: 'State', q: 'In the book, what does "state" in a web server mean?',
+      opts: ['Whether the server is on or off', 'Data the server remembers about a user between requests, such as their session', 'The country the server is located in', 'The version of the code running on the server'],
+      a: 1, why: 'A stateful server remembers client data from one request to the next. The usual example is the login session: who you are and that you are logged in.', ref: 'Book: "A stateful server remembers client data (state) from one request to the next."' },
+    { tag: 'Stateful problem', q: 'User A logged in through Server 1 in a stateful design. The load balancer sends A’s next request to Server 2. What happens?',
+      opts: ['It works, because servers share memory', 'Authentication fails, because Server 2 does not have A’s session', 'Server 2 forwards the request to the database, which logs A in', 'The load balancer stores the session, so it works'],
+      a: 1, why: 'The session exists only in Server 1’s memory. Server 2 has never seen it, so A appears logged out.', ref: 'Book Figure 1-12: "If a request is sent to other servers like Server 2, authentication would fail."' },
+    { tag: 'Sticky sessions', q: 'What do sticky sessions do?',
+      opts: ['Store sessions in a database', 'Make the load balancer send each user to the same server every time', 'Keep users logged in forever', 'Copy each session to every server'],
+      a: 1, why: 'A sticky load balancer remembers which server each user belongs to. It keeps stateful servers working, but the book warns it adds overhead and makes scaling and failures harder.', ref: 'Book: "This can be done with sticky sessions in most load balancers; however, this adds the overhead."' },
+    { tag: 'Failure', q: 'With stateful servers and sticky sessions, Server 2 crashes. What happens to its users?',
+      opts: ['Nothing, the load balancer moves their sessions', 'They are moved to another server and stay logged in', 'Their sessions are lost, so they are logged out and must log in again', 'They are queued until Server 2 comes back'],
+      a: 2, why: 'Sessions lived in Server 2’s memory, which is gone. The load balancer can send them elsewhere, but no other server knows them.', ref: 'Book: "It is also challenging to handle server failures."' },
+    { tag: 'Adding servers', q: 'Traffic is high. You add a fourth server to a stateful, sticky setup. Why doesn’t it help much right away?',
+      opts: ['New servers need a day to warm up', 'Logged-in users are stuck to their old servers, so only new users go to the new one', 'Load balancers cannot handle four servers', 'It does help immediately, equally for everyone'],
+      a: 1, why: 'Existing users must keep going to the server holding their session. The busy servers stay busy until those users leave.', ref: 'Book: "Adding or removing servers is much more difficult with this approach."' },
+    { tag: 'Stateless fix', q: 'What makes a web tier stateless?',
+      opts: ['Servers never use memory', 'Session data is kept in a shared data store outside the web servers, which every server can read', 'Users must log in on every request', 'Each server has its own database'],
+      a: 1, why: 'State still exists. It is just moved out of the web servers into a shared store. Any server can fetch it, so any server can handle any request.', ref: 'Book: "State data is stored in a shared data store and kept out of web servers."' },
+    { tag: 'Store choice', q: 'Which store does the book choose for session data in Figure 1-14, and why?',
+      opts: ['A text file on Server 1, because it is simple', 'NoSQL, because it is easy to scale', 'The CDN, because it is close to users', 'The browser’s local storage, because it is free'],
+      a: 1, why: 'The book lists relational databases, Memcached/Redis and NoSQL as options, and picks NoSQL because it is easy to scale.', ref: 'Book: "The NoSQL data store is chosen as it is easy to scale."' },
+    { tag: 'Autoscaling', q: 'Why does a stateless web tier make autoscaling easy?',
+      opts: ['Stateless servers are cheaper', 'No server holds anything unique, so servers can be added or removed without logging anyone out', 'Autoscaling only works with NoSQL', 'Stateless servers never get busy'],
+      a: 1, why: 'Autoscaling adds and removes servers automatically based on load. If servers held sessions, removing one would log users out. Stateless servers are interchangeable.', ref: 'Book: "After the state data is removed out of web servers, auto-scaling of the web tier is easily achieved."' },
+    { tag: 'Trade-off', q: 'What is the main cost of going stateless?',
+      opts: ['Users must log in more often', 'Each request needs a lookup in the session store, and that store must be fast and highly available', 'You cannot use a load balancer', 'Servers need more memory'],
+      a: 1, why: 'Every request now depends on the session store. Use something fast like Redis or NoSQL, and replicate it so it does not become a single point of failure.', ref: 'Beyond the book, but a common interview follow-up.' },
+    { tag: 'Big picture', q: 'Which statement best describes why the book moves state out of the web tier?',
+      opts: ['To make the website look better', 'To scale the web tier horizontally: any request can go to any server, so servers can be added or removed freely', 'To reduce database size', 'To remove the need for a database'],
+      a: 1, why: 'The section opens with the goal: scale the web tier horizontally. That needs interchangeable servers, which needs state kept elsewhere.', ref: 'Book: "Now it is time to consider scaling the web tier horizontally. For this, we need to move state out of the web tier."' },
+  ];
+
+  const quiz = document.getElementById('quiz'), dots = document.getElementById('dots'), score = document.getElementById('score');
+  let results = [];
+  function render() {
+    results = Q.map(() => null);
+    quiz.innerHTML = Q.map((x, i) => `<article class="q" id="q${i}">
+      <div class="tag">Q${i + 1} · ${x.tag}</div><h2>${x.q}</h2>
+      <div class="opts">${x.opts.map((o, j) => `<button class="opt" data-q="${i}" data-o="${j}">${o}</button>`).join('')}</div>
+      <div class="why" hidden><strong></strong> ${x.why}<span class="ref">${x.ref}</span></div></article>`).join('');
+    update();
+  }
+  function update() {
+    dots.innerHTML = results.map(r => `<i class="${r === true ? 'good' : r === false ? 'bad' : ''}"></i>`).join('');
+    score.textContent = `${results.filter(r => r === true).length} / ${Q.length}`;
+  }
+  quiz.addEventListener('click', e => {
+    const b = e.target.closest('.opt'); if (!b) return;
+    const i = +b.dataset.q, j = +b.dataset.o, card = document.getElementById('q' + i);
+    if (results[i] !== null) return;
+    results[i] = j === Q[i].a;
+    card.querySelectorAll('.opt').forEach((o, k) => { o.disabled = true; if (k === Q[i].a) o.classList.add('right'); else if (k === j) o.classList.add('wrong'); });
+    const why = card.querySelector('.why'); why.hidden = false;
+    why.querySelector('strong').textContent = results[i] ? 'Correct.' : 'Not quite.';
+    update();
+  });
+  document.getElementById('reset').addEventListener('click', render);
+  render();
+})();
+</script>
+</main>
+<div class="bk-nav">
+  <a class="bk-nav-card prev" href="2-session-routing-lab.html" data-nav="prev"><span class="bk-nav-label">← Previous</span><span class="bk-nav-title">Session Routing Lab</span><span class="bk-nav-meta">Chapter 1 · Stateless web tier · Try</span></a>
+  <span class="bk-nav-card bk-nav-empty next"></span>
+</div>
+<p class="bk-foot">Use ← and → keys to turn pages.</p>
+<script src="../../assets/book.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,317 @@
+<title>Stateless Web Tier, Start Here</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column (~68ch) that widens for the interactive Stateful/Stateless figure and the login walkthrough. */
+:root {
+  --bg: #eef2f7; --surface: #ffffff; --surface-2: #f6f8fb; --ink: #142033; --muted: #586579; --line: #d3dae4;
+  --accent: #2f55e4; --ok: #0b8f6c; --fail: #c62828; --store: #7a3fc4; --warn: #c27800;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c121c; --surface: #141c29; --surface-2: #1a2433; --ink: #e5eaf2; --muted: #95a2b6; --line: #2a374b;
+  --accent: #8aa4ff; --ok: #3fd0a6; --fail: #ff6b6b; --store: #b993ff; --warn: #f2b443; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0c121c; --surface: #141c29; --surface-2: #1a2433; --ink: #e5eaf2; --muted: #95a2b6; --line: #2a374b;
+  --accent: #8aa4ff; --ok: #3fd0a6; --fail: #ff6b6b; --store: #b993ff; --warn: #f2b443; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 18px/1.6 var(--body) }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 64px }
+.prose { max-width: 68ch }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.015em; line-height: 1.15 }
+h1 { font-size: clamp(2.1rem, 6vw, 3.4rem) }
+h2 { font-size: clamp(1.4rem, 3vw, 1.85rem); margin-bottom: 10px }
+h3 { font-size: 1.1rem; margin-bottom: 6px }
+p { margin: 0 0 12px }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 10px }
+.lede { font-size: 1.2rem; color: var(--muted); margin-top: 14px }
+section { margin-top: 56px }
+.num { font: 600 13px var(--mono); color: var(--accent); display: block; margin-bottom: 6px }
+code, .mono { font-family: var(--mono); font-size: .88em; font-variant-numeric: tabular-nums }
+code { background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px }
+
+.analogy { margin-top: 24px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px }
+@media (max-width: 640px) { .analogy { grid-template-columns: minmax(0, 1fr) } }
+.analogy div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; font-size: 16px }
+.analogy b { font-family: var(--display); display: block; margin-bottom: 4px }
+
+.figure { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 18px; min-width: 0 }
+.figure svg { width: 100%; height: auto; display: block }
+.figcap { font-size: 14px; color: var(--muted); margin-top: 10px }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px }
+.controls .label { font-size: 15px; color: var(--muted) }
+button { font: 600 15px var(--body); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; padding: 8px 12px; cursor: pointer }
+button:hover { border-color: var(--accent) }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+button:disabled { opacity: .45; cursor: default }
+button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent) }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden }
+.seg button { border: 0; border-radius: 0 }
+
+.node { fill: var(--surface-2); stroke: var(--line); stroke-width: 2 }
+.node.server { stroke: var(--accent) }
+.node.store { stroke: var(--store) }
+.node.ok { stroke: var(--ok); stroke-width: 4 }
+.node.fail { stroke: var(--fail); stroke-width: 4 }
+.svg-text { fill: var(--ink); font: 600 16px var(--body) }
+.svg-sub { fill: var(--muted); font: 12px var(--mono) }
+.sess { font: 600 12px var(--mono) }
+.wire { stroke: var(--line); stroke-width: 2.5; fill: none }
+.result { margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: var(--surface-2); border-left: 4px solid var(--line); min-height: 3.2em }
+.result.ok { border-color: var(--ok) } .result.fail { border-color: var(--fail) }
+.result b { font-family: var(--display) }
+
+.walk { counter-reset: s; list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 10px }
+.walk li { counter-increment: s; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 16px }
+.walk li::before { content: counter(s); font: 700 15px var(--mono); color: var(--accent); width: 28px; height: 28px; border: 2px solid var(--accent); border-radius: 50%; display: grid; place-items: center }
+.walk pre { margin: 6px 0 0; font: 13px/1.5 var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; overflow-x: auto }
+
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-top: 14px }
+table { width: 100%; border-collapse: collapse; font-size: 16px }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted) }
+td:first-child { font-weight: 600 }
+
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 16px }
+@media (max-width: 760px) { .cards { grid-template-columns: minmax(0, 1fr) } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; font-size: 16px; min-width: 0 }
+.card .try { display: block; margin-top: 8px; font-size: 14px; color: var(--muted) }
+.memo { margin: 16px 0 0; padding: 10px 14px; background: var(--surface); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; font-size: 16px }
+
+dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 18px; margin: 14px 0 0; font-size: 16px }
+dt { font: 600 14px var(--mono); color: var(--accent) }
+dd { margin: 0 }
+@media (max-width: 560px) { dl { grid-template-columns: minmax(0, 1fr) } dd { margin-bottom: 8px } }
+
+.next { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px }
+@media (max-width: 640px) { .next { grid-template-columns: minmax(0, 1fr) } }
+.next a { display: block; text-decoration: none; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px }
+.next a:hover { border-color: var(--accent) }
+.next b { font-family: var(--display); font-size: 1.15rem; display: block; color: var(--accent) }
+.mermaid { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; overflow-x: auto; margin-top: 16px }
+</style>
+
+<div class="wrap">
+  <header class="prose">
+    <span class="eyebrow">Chapter 1 · Scale from zero to millions · Stateless web tier</span>
+    <h1>Stateless Web Tier, Start Here</h1>
+    <p class="lede">To handle more users you add more web servers. That only works if any server can answer any user. A stateless web tier makes that true by moving each user's session data off the web servers and into a shared store that every server can read.</p>
+  </header>
+
+  <div class="analogy">
+    <div><b>Stateful: a doctor who keeps your file in their own drawer</b>Only that doctor can treat you. If they are on leave, nobody else knows your history. If the clinic hires more doctors, they can't help existing patients.</div>
+    <div><b>Stateless: files kept in the clinic's central records room</b>Any doctor can see you. They pull your file, treat you, put it back. Doctors can come and go and patients don't notice.</div>
+  </div>
+
+  <section>
+    <div class="prose">
+      <span class="num">01 · The word "state"</span>
+      <h2>What is state?</h2>
+      <p><strong>State</strong> is anything the server has to remember about you <em>between</em> requests. The most common example is your <strong>session</strong>: the fact that you are logged in, who you are, maybe your cart. HTTP itself forgets everything after each request, so the server has to store this somewhere. Here is what happens when you log in:</p>
+    </div>
+    <ol class="walk">
+      <li><div><b>You log in.</b> The server checks your password.</div></li>
+      <li><div><b>The server creates a session</b> and stores it somewhere.<pre>session abc123 → { user: "A", loggedIn: true, cart: ["shoes"] }</pre></div></li>
+      <li><div><b>It sends you a cookie</b> holding only the session ID. Your browser keeps it.<pre>Set-Cookie: session_id=abc123</pre></div></li>
+      <li><div><b>Every later request carries that cookie.</b> The server looks up <code>abc123</code> to know who you are.<pre>GET /cart   Cookie: session_id=abc123</pre></div></li>
+    </ol>
+    <p class="memo">The whole topic is about one question: <strong>where is the session from step 2 stored?</strong> Inside one web server's memory (stateful), or in a shared store outside the web servers (stateless)?</p>
+  </section>
+
+  <section>
+    <div class="prose">
+      <span class="num">02 · Try it</span>
+      <h2>Stateful vs stateless, side by side</h2>
+      <p>User A has logged in. Switch between the two designs, then send User A's next request to each server. This is the book's Figure 1-12 (stateful) and Figure 1-13 (stateless).</p>
+    </div>
+    <div class="figure">
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Design">
+          <button id="mStateful" aria-pressed="true">Stateful</button>
+          <button id="mStateless" aria-pressed="false">Stateless</button>
+        </div>
+        <span class="label">Send User A's next request to</span>
+        <button class="primary" data-s="0">Server 1</button>
+        <button class="primary" data-s="1">Server 2</button>
+        <button class="primary" data-s="2">Server 3</button>
+      </div>
+      <svg id="fig" viewBox="0 0 800 380" role="img" aria-label="User A, three web servers, and in stateless mode a shared session store"></svg>
+      <div class="result" id="result" aria-live="polite">Pick a server to send User A's request to.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="prose">
+      <span class="num">03 · The problem</span>
+      <h2>Why stateful servers get in the way</h2>
+      <p>In a stateful design, every request from User A must go to Server 1, because only Server 1 has A's session. Load balancers can do this with <strong>sticky sessions</strong>: they remember which server each user belongs to. The book says this works but adds overhead, and three things get hard:</p>
+    </div>
+    <div class="cards">
+      <div class="card"><h3>Adding servers</h3>A new server starts with no sessions. Existing users stay stuck to their old servers, so the new one only helps new users. Load stays uneven.<span class="try">Lab mission 5</span></div>
+      <div class="card"><h3>Removing servers</h3>To shut a server down, you have to move or drop the sessions on it. Its users get logged out.<span class="try">Lab mission 4</span></div>
+      <div class="card"><h3>Server failures</h3>If a server crashes, every session in its memory is gone. All its users are suddenly logged out and lose their carts.<span class="try">Lab mission 4</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="prose">
+      <span class="num">04 · The fix</span>
+      <h2>Move the state out</h2>
+      <p>Keep sessions in a <strong>shared data store</strong> that all web servers can reach. The book lists the options: a relational database, Memcached or Redis, or NoSQL. In its design it picks <strong>NoSQL</strong> because it is easy to scale. Now each web server is interchangeable: it receives a request, reads the session from the store, does the work, and forgets.</p>
+      <p>That unlocks <strong>autoscaling</strong>: adding web servers automatically when traffic rises and removing them when it falls. Since no server holds anything unique, adding or removing one never logs anybody out. This is Figure 1-14:</p>
+    </div>
+<pre class="mermaid">
+flowchart LR
+  U["Users<br/>browser or app"] -->|"static files"| CDN["CDN"]
+  U --> LB["Load balancer"]
+  subgraph AS["Web tier · autoscaling"]
+    W1["Web server 1"]
+    W2["Web server 2"]
+    W3["Web server …"]
+  end
+  LB --> W1
+  LB --> W2
+  LB --> W3
+  W1 --> NS[("NoSQL<br/>session data")]
+  W2 --> NS
+  W3 --> NS
+  W1 --> C[("Cache")]
+  W1 --> DB[("Database")]
+</pre>
+  </section>
+
+  <section>
+    <div class="prose">
+      <span class="num">05 · Compare</span>
+      <h2>The two designs at a glance</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>Stateful</th><th>Stateless</th></tr></thead>
+        <tbody>
+          <tr><td>Where sessions live</td><td>Inside one web server's memory</td><td>In a shared store (NoSQL, Redis, SQL)</td></tr>
+          <tr><td>Which server can answer User A</td><td>Only A's server</td><td>Any server</td></tr>
+          <tr><td>Load balancer</td><td>Needs sticky sessions</td><td>Can send each request anywhere</td></tr>
+          <tr><td>Server crashes</td><td>Its users are logged out</td><td>Nobody notices; others take over</td></tr>
+          <tr><td>Adding servers</td><td>Helps only new users</td><td>Helps everyone right away</td></tr>
+          <tr><td>Autoscaling</td><td>Hard</td><td>Easy</td></tr>
+          <tr><td>Cost</td><td>No extra lookup</td><td>One extra network call to the store per request, and the store must be fast and reliable</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="memo">The trade-off to mention in interviews: stateless moves the problem, it doesn't delete it. The session store is now something every request depends on, so it must be fast (Redis, NoSQL) and replicated so it doesn't become a single point of failure.</p>
+  </section>
+
+  <section class="prose">
+    <span class="num">06 · Vocabulary</span>
+    <h2>Words you will hear</h2>
+    <dl>
+      <dt>State</dt><dd>Data a server must remember about a user between requests.</dd>
+      <dt>Session</dt><dd>The most common state: who you are, that you are logged in, your cart.</dd>
+      <dt>Session ID / cookie</dt><dd>A random ID stored in your browser and sent with every request so the server can find your session.</dd>
+      <dt>Stateful server</dt><dd>Keeps users' state in its own memory, so a user must keep coming back to it.</dd>
+      <dt>Stateless server</dt><dd>Keeps no user state. Reads it from a shared store on each request.</dd>
+      <dt>Sticky sessions</dt><dd>A load balancer feature that always sends the same user to the same server.</dd>
+      <dt>Horizontal scaling</dt><dd>Handling more traffic by adding more servers (scale out), rather than a bigger server (scale up).</dd>
+      <dt>Autoscaling</dt><dd>Adding or removing servers automatically based on traffic.</dd>
+    </dl>
+  </section>
+
+  <section>
+    <div class="prose">
+      <span class="num">07 · Practise</span>
+      <h2>Now try it yourself</h2>
+    </div>
+    <div class="next">
+      <a href="https://claude.ai/artifact/93MuteTpKSSHsNy4qVUjq1"><b>Session Routing Lab</b>Log users in, crash servers, add servers, switch on sticky sessions and autoscaling. Eight missions to complete.</a>
+      <a href="https://claude.ai/artifact/GCfHerJvGpFJbFrat2suAy"><b>Stateless Tier Self-Check</b>Ten interview-style questions with explanations, plus a 60-second answer.</a>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const el = (tag, attrs, parent, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; parent && parent.appendChild(e); return e; };
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const svg = document.getElementById('fig'), result = document.getElementById('result');
+  const SX = [160, 400, 640];
+  let mode = 'stateful', busy = false;
+
+  function draw() {
+    svg.innerHTML = '';
+    el('path', { class: 'wire', d: 'M400 64 L400 104' }, svg);
+    SX.forEach(x => el('path', { class: 'wire', d: `M400 140 L${x} 196` }, svg));
+    if (mode === 'stateless') SX.forEach(x => el('path', { class: 'wire', d: `M${x} 264 L400 312`, style: `stroke:${css('--store')};stroke-dasharray:6 5` }, svg));
+    el('rect', { class: 'node', x: 340, y: 20, width: 120, height: 44, rx: 22 }, svg);
+    el('text', { class: 'svg-text', x: 400, y: 48, 'text-anchor': 'middle' }, svg, 'User A');
+    el('rect', { class: 'node', x: 320, y: 104, width: 160, height: 36, rx: 8 }, svg);
+    el('text', { class: 'svg-text', x: 400, y: 128, 'text-anchor': 'middle' }, svg, 'Load balancer');
+    SX.forEach((x, i) => {
+      el('rect', { class: 'node server', id: 'srv' + i, x: x - 80, y: 196, width: 160, height: 68, rx: 10 }, svg);
+      el('text', { class: 'svg-text', x, y: 222, 'text-anchor': 'middle' }, svg, `Server ${i + 1}`);
+      const has = mode === 'stateful' && i === 0;
+      el('text', { class: 'sess', x, y: 248, 'text-anchor': 'middle', fill: has ? css('--ok') : css('--muted') }, svg, has ? 'session: A ✓' : mode === 'stateful' ? 'no session for A' : 'holds no sessions');
+    });
+    if (mode === 'stateless') {
+      el('rect', { class: 'node store', id: 'store', x: 250, y: 312, width: 300, height: 56, rx: 10 }, svg);
+      el('text', { class: 'svg-text', x: 400, y: 336, 'text-anchor': 'middle' }, svg, 'Shared session store (NoSQL)');
+      el('text', { class: 'sess', x: 400, y: 356, 'text-anchor': 'middle', fill: css('--store') }, svg, 'session abc123 → A ✓');
+    } else {
+      el('text', { class: 'svg-sub', x: 400, y: 320, 'text-anchor': 'middle' }, svg, 'User A logged in through Server 1, so the session lives in Server 1’s memory');
+    }
+    el('g', { id: 'pk' }, svg);
+  }
+  function move(points, color) {
+    return new Promise(res => {
+      const c = el('circle', { r: 8, fill: color }, document.getElementById('pk'));
+      const segs = []; let total = 0;
+      for (let i = 1; i < points.length; i++) { const l = Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]); segs.push(l); total += l; }
+      const D = reduce ? 1 : total * 2.2, t0 = performance.now();
+      (function f(now) {
+        let d = Math.min(1, (now - t0) / D) * total, i = 0;
+        while (i < segs.length - 1 && d > segs[i]) { d -= segs[i]; i++; }
+        const a = points[i], b = points[i + 1], p = Math.min(1, d / segs[i]);
+        c.setAttribute('cx', a[0] + (b[0] - a[0]) * p); c.setAttribute('cy', a[1] + (b[1] - a[1]) * p);
+        if ((now - t0) < D) requestAnimationFrame(f); else { c.remove(); res(); }
+      })(t0);
+    });
+  }
+  async function send(i) {
+    if (busy) return; busy = true;
+    draw();
+    const x = SX[i];
+    result.className = 'result'; result.textContent = `Sending User A's request (Cookie: session_id=abc123) to Server ${i + 1}…`;
+    await move([[400, 64], [400, 122], [x, 196]], css('--accent'));
+    let ok;
+    if (mode === 'stateless') {
+      await move([[x, 264], [400, 312]], css('--store'));
+      await move([[400, 312], [x, 264]], css('--store'));
+      ok = true;
+    } else ok = i === 0;
+    document.getElementById('srv' + i).classList.add(ok ? 'ok' : 'fail');
+    await move([[x, 196], [400, 122], [400, 64]], css(ok ? '--ok' : '--fail'));
+    result.className = 'result ' + (ok ? 'ok' : 'fail');
+    result.innerHTML = mode === 'stateless'
+      ? `<b>Works.</b> Server ${i + 1} looked up abc123 in the shared store and found User A. Every server can do this, so the load balancer can pick any of them.`
+      : ok ? `<b>Works.</b> Server 1 has User A's session in its own memory. But this only works because the request landed on Server 1.`
+           : `<b>User A is logged out.</b> Server ${i + 1} has never heard of session abc123, because that session only exists in Server 1's memory. In a stateful design, A must always reach Server 1.`;
+    busy = false;
+  }
+  function setMode(m) {
+    mode = m;
+    document.getElementById('mStateful').setAttribute('aria-pressed', m === 'stateful');
+    document.getElementById('mStateless').setAttribute('aria-pressed', m === 'stateless');
+    result.className = 'result'; result.textContent = 'Pick a server to send User A’s request to.';
+    draw();
+  }
+  document.getElementById('mStateful').addEventListener('click', () => setMode('stateful'));
+  document.getElementById('mStateless').addEventListener('click', () => setMode('stateless'));
+  document.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', () => send(+b.dataset.s)));
+  draw();
+})();
+</script>

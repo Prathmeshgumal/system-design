@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CDN Self-Check · System Design, Hands-On</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%232f55e4%27/%3E%3Cpath d=%27M9 9h14M9 16h14M9 23h9%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/book.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: single reading column; a sticky score strip, then one card per interview-style question. */
+:root {
+  --bg: #eef2f7; --surface: #ffffff; --surface-2: #f6f8fb; --ink: #142033; --muted: #586579; --line: #d3dae4;
+  --accent: #2f55e4; --good: #0b8f6c; --bad: #c62828;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c121c; --surface: #141c29; --surface-2: #1a2433; --ink: #e5eaf2; --muted: #95a2b6; --line: #2a374b;
+  --accent: #8aa4ff; --good: #3fd0a6; --bad: #ff6b6b; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0c121c; --surface: #141c29; --surface-2: #1a2433; --ink: #e5eaf2; --muted: #95a2b6; --line: #2a374b;
+  --accent: #8aa4ff; --good: #3fd0a6; --bad: #ff6b6b; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 17px/1.55 var(--body) }
+.wrap { max-width: 760px; margin: 0 auto; padding-inline: 18px; padding-block: 28px 56px }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em }
+h1 { font-size: clamp(1.8rem, 5vw, 2.5rem) }
+h2 { font-size: 1.1rem; line-height: 1.35 }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent) }
+.lede { color: var(--muted); margin: 8px 0 0 }
+.score { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; margin: 20px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between }
+.score b { font: 600 18px var(--mono); font-variant-numeric: tabular-nums }
+.dots { display: flex; gap: 5px; flex-wrap: wrap }
+.dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line) }
+.dots i.good { background: var(--good) } .dots i.bad { background: var(--bad) }
+.q { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-top: 14px }
+.q .tag { font: 12px var(--mono); color: var(--muted) }
+.opts { display: grid; gap: 8px; margin-top: 12px }
+.opt { text-align: left; font: 16px/1.4 var(--body); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; cursor: pointer }
+.opt:hover:not(:disabled) { border-color: var(--accent) }
+.opt:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.opt:disabled { cursor: default }
+.opt.right { border-color: var(--good); box-shadow: inset 4px 0 0 var(--good) }
+.opt.wrong { border-color: var(--bad); box-shadow: inset 4px 0 0 var(--bad) }
+.why { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); color: var(--ink) }
+.why strong { font-family: var(--display) }
+.why .ref { display: block; color: var(--muted); font-size: 14px; margin-top: 6px }
+button.reset { font: 600 14px var(--body); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; padding: 8px 12px; cursor: pointer }
+.pitch { margin-top: 36px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px }
+.pitch ol { padding-left: 1.2em; margin: 10px 0 0; display: grid; gap: 6px }
+code { font: 0.9em var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px }
+</style>
+</head>
+<body data-page="ch01/cdn/3-self-check">
+<div class="bk-bar">
+  <a class="bk-home" href="../../index.html">System Design, Hands-On</a>
+  <span class="bk-crumb">Chapter 1 · CDN · page 3 of 3</span>
+  <button class="bk-toc-btn" type="button" aria-expanded="false" aria-controls="bk-drawer">Contents</button>
+  <div class="bk-progress" aria-hidden="true"><i style="width:50.0%"></i></div>
+</div>
+<div class="bk-drawer" id="bk-drawer" hidden>
+  <div class="bk-drawer-inner">
+    <div class="bk-drawer-head"><b>Contents</b><button class="bk-close" type="button">Close</button></div>
+    <a class="bk-drawer-home" href="../../index.html">All chapters</a>
+    <p class="bk-toc-ch">Chapter 1 · Scale From Zero To Millions Of Users</p>
+<p class="bk-toc-tp">CDN</p><ol class="bk-toc-list">
+<li><a href="1-start-here.html" data-page="ch01/cdn/1-start-here"><span class="bk-kind">Read</span>CDN, Start Here</a></li>
+<li><a href="2-request-lab.html" data-page="ch01/cdn/2-request-lab"><span class="bk-kind">Try</span>CDN Request Lab</a></li>
+<li><a href="3-self-check.html" aria-current="page" data-page="ch01/cdn/3-self-check"><span class="bk-kind">Test</span>CDN Self-Check</a></li>
+</ol>
+<p class="bk-toc-tp">Stateless web tier</p><ol class="bk-toc-list">
+<li><a href="../stateless-web-tier/1-start-here.html" data-page="ch01/stateless-web-tier/1-start-here"><span class="bk-kind">Read</span>Stateless Web Tier, Start Here</a></li>
+<li><a href="../stateless-web-tier/2-session-routing-lab.html" data-page="ch01/stateless-web-tier/2-session-routing-lab"><span class="bk-kind">Try</span>Session Routing Lab</a></li>
+<li><a href="../stateless-web-tier/3-self-check.html" data-page="ch01/stateless-web-tier/3-self-check"><span class="bk-kind">Test</span>Stateless Tier Self-Check</a></li>
+</ol>
+  </div>
+</div>
+<main class="bk-page">
+<div class="wrap">
+  <span class="eyebrow">Chapter 1 · CDN · Self-check</span>
+  <h1>CDN Self-Check</h1>
+  <p class="lede">Twelve questions, phrased the way an interviewer might ask them. Pick an answer to see why it is right or wrong. Any question you miss is a good one to bring to our doubt session.</p>
+
+  <div class="score">
+    <span>Score <b id="score">0 / 12</b></span>
+    <span class="dots" id="dots"></span>
+    <button class="reset" id="reset">Start over</button>
+  </div>
+
+  <div id="quiz"></div>
+
+  <section class="pitch">
+    <h2>Say it in an interview, in about 60 seconds</h2>
+    <ol>
+      <li>Static files like images, CSS, JS and video should not be served by our web servers. We put them on a CDN.</li>
+      <li>A CDN is many cache servers spread around the world. A user gets the file from the nearest one, so it loads fast.</li>
+      <li>On a miss, the edge fetches the file from our origin (web server or S3), caches it for the TTL the origin sets, and returns it. Later users near that edge get a hit.</li>
+      <li>Trade-offs: we pay per GB transferred, so we skip rarely used files. We pick a TTL that is neither too long (stale) nor too short (origin load).</li>
+      <li>To push a change early we invalidate through the vendor API or, better, version the URL like <code>app.js?v=2</code>.</li>
+      <li>If the CDN goes down, clients fall back to the origin.</li>
+    </ol>
+  </section>
+</div>
+
+<script>
+(() => {
+  const Q = [
+    { tag: 'What goes on a CDN', q: 'Your shopping site has these. Which pair belongs on the CDN?',
+      opts: ['The product photos and the site’s CSS file', 'The logged-in user’s cart page and their order history', 'The checkout API and the payment response', 'The database and the session store'],
+      a: 0, why: 'The book scopes CDNs to static content: images, videos, CSS, JavaScript. Those are the same for every user. A cart page is different for each user, so it is dynamic and the book leaves dynamic caching out of scope.', ref: 'Book: "CDN servers cache static content like images, videos, CSS, JavaScript files."' },
+    { tag: 'Distance', q: 'Your only CDN servers are in San Francisco. Who gets the fastest page loads?',
+      opts: ['Everyone equally, because it is a CDN', 'Users in Los Angeles', 'Users in Europe', 'Users close to your origin server'],
+      a: 1, why: 'A CDN only helps if an edge server is near the user. Los Angeles is close to San Francisco. Europe is far away, so Europeans still wait for a long round trip.', ref: 'Book: "if CDN servers are in San Francisco, users in Los Angeles will get content faster than users in Europe."' },
+    { tag: 'Cache miss', q: 'User A in Frankfurt is the first person ever to request image.png. What does the Frankfurt edge do?',
+      opts: ['Returns a 404 because it does not have the file', 'Redirects the user to the origin to download it', 'Fetches it from the origin, caches it, then returns it to User A', 'Asks the other edge servers if they have it, and errors if none do'],
+      a: 2, why: 'This is steps 2 to 4 of the book’s workflow. The edge pulls the file from the origin itself, stores it, and serves it. The user never talks to the origin.', ref: 'Book Figure 1-10, steps 1–4.' },
+    { tag: 'TTL', q: 'Who tells the edge server how long to keep image.png?',
+      opts: ['The user’s browser', 'The origin, through an HTTP header such as Cache-Control: max-age', 'The CDN keeps every file forever', 'The load balancer'],
+      a: 1, why: 'The origin sends a Time-to-Live with the file. The edge keeps the copy until the TTL runs out.', ref: 'Book step 3: "The origin returns image.png ... which includes optional HTTP header Time-to-Live (TTL)."' },
+    { tag: 'Cache hit', q: 'User B, also in Frankfurt, requests image.png 10 minutes later. TTL is 1 hour. What happens?',
+      opts: ['The edge fetches it from the origin again', 'The edge returns its cached copy without contacting the origin', 'User B is sent to the San Francisco edge', 'The request fails because User A already downloaded it'],
+      a: 1, why: 'The copy is still within its TTL, so it is a cache hit. No trip to the origin. This is why the second user is so much faster.', ref: 'Book steps 5–6.' },
+    { tag: 'Stale content', q: 'You fixed a bug in app.js and deployed it to the origin. Users still get the old app.js. Why?',
+      opts: ['The deploy failed', 'Edge servers still have the old copy cached and its TTL has not run out', 'Browsers cannot download JavaScript from CDNs', 'The origin is down'],
+      a: 1, why: 'The edge has no idea the origin changed. It keeps serving its copy until the TTL expires. Try mission 5 in the lab to watch this happen.', ref: 'Book: "If it is too long, the content might no longer be fresh."' },
+    { tag: 'Invalidation', q: 'Which two methods does the book give for removing a file from the CDN before its TTL runs out?',
+      opts: ['Restart the CDN, or lower the TTL', 'Invalidate it with the CDN vendor’s API, or change its URL with a version like app.js?v=2', 'Delete it from the origin, or block the edge IP', 'Clear the user’s browser cache, or use a VPN'],
+      a: 1, why: 'Invalidation tells the vendor to drop the cached object. Versioning sidesteps the old copy: app.js?v=2 is a different URL, so the edge treats it as a brand-new file and fetches it fresh.', ref: 'Book: "Invalidating files" under Considerations.' },
+    { tag: 'Versioning', q: 'Why do many teams prefer versioned URLs over calling the invalidation API?',
+      opts: ['Versioned URLs make files smaller', 'A new URL is a new cache key, so the change is instant everywhere, including browser caches, with no purge to wait for', 'The invalidation API does not exist on most CDNs', 'Versioned URLs skip the origin entirely'],
+      a: 1, why: 'Purges take time to reach every edge, and they do not clear copies already in users’ browsers. A new URL is never in any cache, so everyone gets the new file on their next page load. The old copy expires harmlessly.', ref: 'Beyond the book, but a common follow-up question.' },
+    { tag: 'Choosing a TTL', q: 'You set the TTL for your logo to 5 seconds. What goes wrong?',
+      opts: ['Users see an old logo for too long', 'Edges keep going back to the origin, so the origin gets heavy load and users miss more often', 'The CDN refuses TTLs under one minute', 'Nothing. Shorter is always better'],
+      a: 1, why: 'Too short a TTL means copies expire almost at once, so most requests become misses. You lose most of the CDN’s benefit. Too long means stale content. Pick based on how often the file changes.', ref: 'Book: "If it is too short, it can cause repeat reloading of content from origin servers to the CDN."' },
+    { tag: 'Outage', q: 'Your CDN provider has a 20-minute outage. What should your app do?',
+      opts: ['Show an error page until the CDN is back', 'Detect the failure and request the files from the origin directly', 'Switch off all images', 'Wait. CDNs never go down'],
+      a: 1, why: 'The client should notice the CDN is not responding and fall back to the origin. It will be slower, and the origin takes more load, but the site keeps working.', ref: 'Book: "CDN fallback" under Considerations.' },
+    { tag: 'Cost', q: 'You have a 2 GB training video that about one person a month watches. Should it be on the CDN?',
+      opts: ['Yes, everything should be on the CDN', 'Probably not. You pay for CDN transfer, and a file that is rarely requested is almost never a cache hit', 'Yes, because big files are always faster on a CDN', 'No, because CDNs cannot store video'],
+      a: 1, why: 'CDNs charge for data moving in and out. A rarely used file will usually have expired before the next viewer arrives, so you pay without getting hits.', ref: 'Book: "Caching infrequently used assets provides no significant benefits."' },
+    { tag: 'CDN vs cache tier', q: 'Chapter 1 adds both a cache (like Redis) and a CDN. What is the difference?',
+      opts: ['They are the same thing with different names', 'The CDN keeps static files near users around the world. The cache tier sits next to the web servers and keeps data from the database in memory', 'The CDN stores database rows and the cache stores images', 'The cache tier is only for mobile apps'],
+      a: 1, why: 'Both are caches, but they cache different things in different places. The CDN takes static-file traffic off the web servers. The cache tier takes read traffic off the database.', ref: 'Book Figure 1-11: "Static assets ... are fetched from the CDN" and "The database load is lightened by caching data."' },
+  ];
+
+  const quiz = document.getElementById('quiz'), dots = document.getElementById('dots'), score = document.getElementById('score');
+  let results = [];
+  function render() {
+    results = Q.map(() => null);
+    quiz.innerHTML = Q.map((x, i) => `<article class="q" id="q${i}">
+      <div class="tag">Q${i + 1} · ${x.tag}</div><h2>${x.q}</h2>
+      <div class="opts">${x.opts.map((o, j) => `<button class="opt" data-q="${i}" data-o="${j}">${o}</button>`).join('')}</div>
+      <div class="why" hidden><strong></strong> ${x.why}<span class="ref">${x.ref}</span></div></article>`).join('');
+    update();
+  }
+  function update() {
+    dots.innerHTML = results.map(r => `<i class="${r === true ? 'good' : r === false ? 'bad' : ''}"></i>`).join('');
+    score.textContent = `${results.filter(r => r === true).length} / ${Q.length}`;
+  }
+  quiz.addEventListener('click', e => {
+    const b = e.target.closest('.opt'); if (!b) return;
+    const i = +b.dataset.q, j = +b.dataset.o, card = document.getElementById('q' + i);
+    if (results[i] !== null) return;
+    results[i] = j === Q[i].a;
+    card.querySelectorAll('.opt').forEach((o, k) => { o.disabled = true; if (k === Q[i].a) o.classList.add('right'); else if (k === j) o.classList.add('wrong'); });
+    const why = card.querySelector('.why'); why.hidden = false;
+    why.querySelector('strong').textContent = results[i] ? 'Correct.' : 'Not quite.';
+    update();
+  });
+  document.getElementById('reset').addEventListener('click', render);
+  render();
+})();
+</script>
+</main>
+<div class="bk-nav">
+  <a class="bk-nav-card prev" href="2-request-lab.html" data-nav="prev"><span class="bk-nav-label">← Previous</span><span class="bk-nav-title">CDN Request Lab</span><span class="bk-nav-meta">Chapter 1 · CDN · Try</span></a>
+  <a class="bk-nav-card next" href="../stateless-web-tier/1-start-here.html" data-nav="next"><span class="bk-nav-label">Next →</span><span class="bk-nav-title">Stateless Web Tier, Start Here</span><span class="bk-nav-meta">Chapter 1 · Stateless web tier · Read</span></a>
+</div>
+<p class="bk-foot">Use ← and → keys to turn pages.</p>
+<script src="../../assets/book.js"></script>
+
+</body>
+</html>

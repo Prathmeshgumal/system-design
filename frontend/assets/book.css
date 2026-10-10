@@ -1,0 +1,113 @@
+/* Book chrome for System Design, Hands-On.
+   Base reset for every page, then the bk-* chrome (bar, contents drawer, page turner)
+   and the ix-* contents page. Page content brings its own styles. */
+:root {
+  --bk-bg: #eef2f7; --bk-surface: #ffffff; --bk-surface-2: #f6f8fb; --bk-ink: #142033; --bk-muted: #586579;
+  --bk-line: #d3dae4; --bk-accent: #2f55e4; --bk-ok: #0b8f6c;
+  --bk-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --bk-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --bk-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bk-bg: #0c121c; --bk-surface: #141c29; --bk-surface-2: #1a2433; --bk-ink: #e5eaf2; --bk-muted: #95a2b6;
+    --bk-line: #2a374b; --bk-accent: #8aa4ff; --bk-ok: #3fd0a6; color-scheme: dark;
+  }
+}
+body { margin: 0; font: 14px/1.5 system-ui, sans-serif; background: var(--bk-bg); color: var(--bk-ink) }
+img { max-width: 100% }
+[hidden] { display: none !important }
+
+/* ---------- Top bar ---------- */
+.bk-bar {
+  position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  padding: 10px 20px 12px; background: var(--bk-surface); border-bottom: 1px solid var(--bk-line);
+  font: 15px/1.3 var(--bk-body); color: var(--bk-ink);
+}
+.bk-bar .bk-home { font: 700 16px var(--bk-display); color: var(--bk-ink); text-decoration: none; letter-spacing: -0.01em }
+.bk-bar .bk-home:hover { color: var(--bk-accent) }
+.bk-bar .bk-crumb { flex: 1 1 200px; min-width: 0; font: 12px var(--bk-mono); color: var(--bk-muted); letter-spacing: .02em }
+.bk-bar .bk-toc-btn, .bk-drawer .bk-close {
+  font: 600 14px/1 var(--bk-body); color: var(--bk-ink); background: var(--bk-surface-2);
+  border: 1px solid var(--bk-line); border-radius: 7px; padding: 8px 12px; cursor: pointer;
+}
+.bk-bar .bk-toc-btn:hover, .bk-drawer .bk-close:hover { border-color: var(--bk-accent) }
+.bk-progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: transparent }
+.bk-progress i { display: block; height: 100%; background: var(--bk-accent) }
+.bk-bar a:focus-visible, .bk-bar button:focus-visible, .bk-drawer a:focus-visible, .bk-drawer button:focus-visible,
+.bk-nav a:focus-visible, .ix a:focus-visible { outline: 2px solid var(--bk-accent); outline-offset: 2px }
+
+/* ---------- Contents drawer ---------- */
+.bk-drawer { position: fixed; inset: 0; z-index: 50; background: rgb(8 12 20 / .45); display: flex; justify-content: flex-end }
+.bk-drawer .bk-drawer-inner {
+  width: min(380px, 100%); height: 100%; overflow-y: auto; background: var(--bk-surface); border-left: 1px solid var(--bk-line);
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 18px calc(24px + env(safe-area-inset-bottom, 0px));
+  font: 15px/1.4 var(--bk-body); color: var(--bk-ink);
+}
+.bk-drawer .bk-drawer-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px }
+.bk-drawer .bk-drawer-head b { font: 700 18px var(--bk-display) }
+.bk-drawer .bk-drawer-home { display: inline-block; margin-bottom: 8px; color: var(--bk-accent); font-weight: 600; text-decoration: none }
+.bk-drawer .bk-toc-ch { margin: 16px 0 4px; font: 600 12px var(--bk-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--bk-muted) }
+.bk-drawer .bk-toc-tp { margin: 10px 0 4px; font: 700 16px var(--bk-display) }
+.bk-drawer .bk-toc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px }
+.bk-drawer .bk-toc-list a { display: flex; gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 6px; color: var(--bk-ink); text-decoration: none }
+.bk-drawer .bk-toc-list a:hover { background: var(--bk-surface-2) }
+.bk-drawer .bk-toc-list a[aria-current="page"] { background: var(--bk-surface-2); box-shadow: inset 3px 0 0 var(--bk-accent); font-weight: 600 }
+.bk-kind {
+  flex: none; display: inline-block; min-width: 3.4em; text-align: center; font: 600 11px/1.6 var(--bk-mono);
+  text-transform: uppercase; letter-spacing: .05em; color: var(--bk-accent); border: 1px solid var(--bk-line); border-radius: 4px; padding: 0 4px;
+}
+
+/* ---------- Page turner ---------- */
+.bk-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 980px; margin: 8px auto 0; padding: 0 20px }
+@media (max-width: 600px) { .bk-nav { grid-template-columns: minmax(0, 1fr) } }
+.bk-nav .bk-nav-card {
+  display: grid; gap: 4px; padding: 16px 18px; border: 1px solid var(--bk-line); border-radius: 12px; background: var(--bk-surface);
+  color: var(--bk-ink); text-decoration: none; font: 15px/1.35 var(--bk-body); min-width: 0;
+}
+.bk-nav a.bk-nav-card:hover { border-color: var(--bk-accent) }
+.bk-nav .bk-nav-card.next { text-align: right }
+.bk-nav .bk-nav-empty { border-style: dashed; background: transparent; min-height: 1px }
+@media (max-width: 600px) { .bk-nav .bk-nav-empty { display: none } }
+.bk-nav .bk-nav-label { font: 600 12px var(--bk-mono); color: var(--bk-accent); text-transform: uppercase; letter-spacing: .06em }
+.bk-nav .bk-nav-title { font: 700 18px/1.2 var(--bk-display) }
+.bk-nav .bk-nav-meta { font-size: 13px; color: var(--bk-muted) }
+.bk-foot { max-width: 980px; margin: 14px auto 0; padding: 0 20px 40px; font: 13px var(--bk-body); color: var(--bk-muted); text-align: center }
+@media (hover: none) { .bk-foot { display: none } }
+
+/* ---------- Contents page ---------- */
+.ix { font: 17px/1.55 var(--bk-body) }
+.ix-wrap { max-width: 860px; margin: 0 auto; padding-inline: 20px; padding-block: 48px 72px }
+.ix-cover { border-bottom: 1px solid var(--bk-line); padding-bottom: 32px }
+.ix-eyebrow { font: 600 12px var(--bk-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--bk-accent) }
+.ix-cover h1 { font: 700 clamp(2.4rem, 8vw, 4.4rem)/1.02 var(--bk-display); letter-spacing: -0.03em; margin: 12px 0 14px; text-wrap: balance }
+.ix-cover p { font-size: 1.2rem; color: var(--bk-muted); max-width: 56ch; margin: 0 }
+.ix-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px }
+.ix-btn { font: 600 16px/1 var(--bk-body); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--bk-line); background: var(--bk-surface); color: var(--bk-ink); text-decoration: none }
+.ix-btn:hover { border-color: var(--bk-accent) }
+.ix-btn.ix-primary { background: var(--bk-accent); border-color: var(--bk-accent); color: var(--bk-bg) }
+.ix-how { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 22px; font-size: 15px; color: var(--bk-muted) }
+.ix-how .bk-kind { margin-right: 6px }
+.ix-h2 { font: 700 1.6rem var(--bk-display); margin: 36px 0 12px; letter-spacing: -0.01em }
+.ix-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--bk-line) }
+.ix-ch { display: grid; grid-template-columns: 3em minmax(0, 1fr) auto; gap: 4px 12px; align-items: baseline; padding: 14px 0; border-bottom: 1px solid var(--bk-line) }
+.ix-num { font: 600 15px var(--bk-mono); color: var(--bk-muted); font-variant-numeric: tabular-nums }
+.ix-title { font: 600 17px/1.3 var(--bk-display) }
+.ix-state { font: 12px var(--bk-mono); color: var(--bk-muted); white-space: nowrap }
+.ix-later .ix-title { color: var(--bk-muted); font-weight: 500 }
+.ix-open .ix-num { color: var(--bk-accent) }
+.ix-open .ix-title { font-size: 1.3rem }
+@media (max-width: 560px) { .ix-ch { grid-template-columns: 2.4em minmax(0, 1fr) } .ix-state { grid-column: 2 } }
+.ix-topics { grid-column: 2 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 12px }
+@media (max-width: 560px) { .ix-topics { grid-column: 1 / -1 } }
+.ix-topic { background: var(--bk-surface); border: 1px solid var(--bk-line); border-radius: 12px; padding: 14px 16px; min-width: 0 }
+.ix-topic h3 { font: 700 1.1rem var(--bk-display); margin: 0 0 8px }
+.ix-topic ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px }
+.ix-topic a { display: flex; gap: 8px; align-items: baseline; padding: 6px 6px; border-radius: 6px; color: var(--bk-ink); text-decoration: none; font-size: 16px }
+.ix-topic a:hover { background: var(--bk-surface-2) }
+.ix-topic a > span:nth-child(2) { flex: 1; min-width: 0 }
+.ix-seen { width: 8px; height: 8px; border-radius: 50%; flex: none; align-self: center }
+.ix-topic a.seen .ix-seen { background: var(--bk-ok) }
