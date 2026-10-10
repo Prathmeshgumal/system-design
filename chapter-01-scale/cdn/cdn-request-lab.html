@@ -1,0 +1,442 @@
+<title>CDN Request Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a control strip, then the network stage (SVG) with cache cards under each edge, missions + log beside it. */
+:root {
+  --bg: #eef2f7; --surface: #ffffff; --surface-2: #f6f8fb; --ink: #142033; --muted: #586579; --line: #d3dae4;
+  --accent: #2f55e4; --hit: #0b8f6c; --miss: #c27800; --origin: #cf4a14; --stale: #b0307a; --down: #c62828;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c121c; --surface: #141c29; --surface-2: #1a2433; --ink: #e5eaf2; --muted: #95a2b6; --line: #2a374b;
+  --accent: #8aa4ff; --hit: #3fd0a6; --miss: #f2b443; --origin: #ff8a57; --stale: #f27abd; --down: #ff6b6b; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0c121c; --surface: #141c29; --surface-2: #1a2433; --ink: #e5eaf2; --muted: #95a2b6; --line: #2a374b;
+  --accent: #8aa4ff; --hit: #3fd0a6; --miss: #f2b443; --origin: #ff8a57; --stale: #f27abd; --down: #ff6b6b; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 16px/1.5 var(--body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 48px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em }
+h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); }
+h2 { font-size: 1.15rem; }
+.lede { color: var(--muted); max-width: 68ch; margin: 8px 0 0 }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent) }
+header { display: grid; gap: 6px; margin-bottom: 20px }
+
+.controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.controls .group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.controls label { font-size: 14px; color: var(--muted) }
+button { font: 600 14px/1 var(--body); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; padding: 9px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent) }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent) }
+button.danger[aria-pressed="true"] { background: var(--down); color: var(--bg); border-color: var(--down) }
+button.toggle[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+select, input[type=range] { font: inherit; accent-color: var(--accent) }
+select { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 7px 8px }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; margin-top: 20px }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr) } }
+
+.stage { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0 }
+.stage svg { width: 100%; height: auto; display: block }
+.svg-text { fill: var(--ink); font: 600 15px var(--body) }
+.svg-sub { fill: var(--muted); font: 12px var(--mono) }
+.link { stroke: var(--line); stroke-width: 3; fill: none }
+.link.fallback { stroke-dasharray: 6 7; stroke-width: 2 }
+.node { fill: var(--surface-2); stroke: var(--line); stroke-width: 2 }
+.node.origin { stroke: var(--origin) }
+.node.edge { stroke: var(--accent) }
+.node.flash-hit { stroke: var(--hit); stroke-width: 5 }
+.node.flash-miss { stroke: var(--miss); stroke-width: 5 }
+.node.flash-stale { stroke: var(--stale); stroke-width: 5 }
+.node.flash-purge { stroke: var(--stale); stroke-width: 5; stroke-dasharray: 5 4 }
+.node.down { stroke: var(--down); stroke-dasharray: 6 5 }
+.xmark { stroke: var(--down); stroke-width: 6; stroke-linecap: round }
+
+.caches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px }
+@media (max-width: 640px) { .caches { grid-template-columns: minmax(0, 1fr) } }
+.cache { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0 }
+.cache h3 { font-size: 14px; display: flex; justify-content: space-between; gap: 8px }
+.cache h3 span { font: 12px var(--mono); color: var(--muted) }
+.entries { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; min-height: 64px }
+.entries .empty { color: var(--muted); font-size: 13px }
+.entry { font: 12px/1.3 var(--mono); display: grid; gap: 3px }
+.entry .row { display: flex; justify-content: space-between; gap: 6px }
+.entry .stalebadge { color: var(--stale); font-weight: 600 }
+.bar { height: 5px; background: var(--line); border-radius: 3px; overflow: hidden }
+.bar i { display: block; height: 100%; background: var(--hit) }
+
+.origin-panel { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px }
+.origin-panel strong { color: var(--origin); font-family: var(--display) }
+.file-chip { font: 12px var(--mono); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; background: var(--surface) }
+
+.stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 12px }
+@media (max-width: 640px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+.stat { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px }
+.stat b { display: block; font: 600 20px var(--mono); font-variant-numeric: tabular-nums }
+.stat span { font-size: 12px; color: var(--muted) }
+
+aside { display: grid; gap: 16px; align-content: start; min-width: 0 }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0 }
+.missions { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 10px }
+.mission { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: 14px }
+.mission .tick { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font: 700 12px var(--mono); color: var(--bg) }
+.mission.done .tick { background: var(--hit); border-color: var(--hit) }
+.mission.done .mtitle { text-decoration: line-through; text-decoration-color: var(--muted) }
+.mission .mhint { color: var(--muted); font-size: 13px }
+.log { list-style: none; padding: 0; margin: 10px 0 0; max-height: 300px; overflow-y: auto; display: grid; gap: 4px; font: 12px/1.4 var(--mono) }
+.log li { border-left: 3px solid var(--line); padding-left: 8px }
+.log .hit { border-color: var(--hit) } .log .miss { border-color: var(--miss) } .log .stale { border-color: var(--stale) }
+.log .down { border-color: var(--down) } .log .info { border-color: var(--accent) }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); margin-top: 10px }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px }
+.book { font-size: 13px; color: var(--muted); margin-top: 8px }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Chapter 1 · CDN · Lab</span>
+    <h1>CDN Request Lab</h1>
+    <p class="lede">Three users in three cities ask for files from one website. The origin server is in Virginia. Each city has a CDN edge server with its own small cache. Send requests, change the TTL, update files, and break things. Every rule from the book's "Considerations of using a CDN" list happens here.</p>
+  </header>
+
+  <div class="controls">
+    <div class="group">
+      <label for="file">File</label>
+      <select id="file">
+        <option value="logo.png">logo.png</option>
+        <option value="app.js">app.js</option>
+        <option value="hero.jpg">hero.jpg</option>
+      </select>
+      <button class="primary" data-req="sfo">Request from San Francisco</button>
+      <button class="primary" data-req="fra">Request from Frankfurt</button>
+      <button class="primary" data-req="bom">Request from Mumbai</button>
+    </div>
+    <div class="group">
+      <label for="ttl">TTL</label>
+      <input id="ttl" type="range" min="30" max="600" step="30" value="120">
+      <span class="mono" id="ttlOut">120 s</span>
+    </div>
+    <div class="group">
+      <button class="toggle" id="auto" aria-pressed="false">Auto traffic</button>
+      <button class="toggle" id="versioning" aria-pressed="false">Versioned URLs</button>
+      <button class="danger" id="outage" aria-pressed="false">Take CDN down</button>
+      <button id="reset">Reset</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <section class="stage" aria-label="Network">
+      <svg id="svg" viewBox="0 0 900 380" role="img" aria-label="Origin server connected to three CDN edges, each serving one user">
+        <path class="link" id="e-sfo" d="M450 72 L150 188"></path>
+        <path class="link" id="e-fra" d="M450 72 L450 188"></path>
+        <path class="link" id="e-bom" d="M450 72 L750 188"></path>
+        <path class="link" id="u-sfo" d="M150 312 L150 228"></path>
+        <path class="link" id="u-fra" d="M450 312 L450 228"></path>
+        <path class="link" id="u-bom" d="M750 312 L750 228"></path>
+        <path class="link fallback" id="f-sfo" d="M130 322 C 30 200, 200 60, 410 52"></path>
+        <path class="link fallback" id="f-fra" d="M420 320 C 300 260, 300 110, 420 66"></path>
+        <path class="link fallback" id="f-bom" d="M770 322 C 870 200, 700 60, 490 52"></path>
+
+        <rect class="node origin" id="n-origin" x="380" y="22" width="140" height="56" rx="8"></rect>
+        <text class="svg-text" x="450" y="47" text-anchor="middle">Origin</text>
+        <text class="svg-sub" x="450" y="66" text-anchor="middle">Virginia · S3 / web</text>
+
+        <g id="g-sfo">
+          <rect class="node edge" id="n-sfo" x="80" y="188" width="140" height="44" rx="8"></rect>
+          <text class="svg-text" x="150" y="215" text-anchor="middle">Edge · SFO</text>
+        </g>
+        <g id="g-fra">
+          <rect class="node edge" id="n-fra" x="380" y="188" width="140" height="44" rx="8"></rect>
+          <text class="svg-text" x="450" y="215" text-anchor="middle">Edge · FRA</text>
+        </g>
+        <g id="g-bom">
+          <rect class="node edge" id="n-bom" x="680" y="188" width="140" height="44" rx="8"></rect>
+          <text class="svg-text" x="750" y="215" text-anchor="middle">Edge · BOM</text>
+        </g>
+        <text class="svg-sub" x="300" y="122" text-anchor="middle">70 ms</text>
+        <text class="svg-sub" x="478" y="140" text-anchor="start">90 ms</text>
+        <text class="svg-sub" x="600" y="122" text-anchor="middle">190 ms</text>
+
+        <g>
+          <circle class="node" cx="150" cy="332" r="20"></circle><text class="svg-text" x="150" y="371" text-anchor="middle">User · San Francisco</text>
+          <circle class="node" cx="450" cy="332" r="20"></circle><text class="svg-text" x="450" y="371" text-anchor="middle">User · Frankfurt</text>
+          <circle class="node" cx="750" cy="332" r="20"></circle><text class="svg-text" x="750" y="371" text-anchor="middle">User · Mumbai</text>
+          <text class="svg-sub" x="162" y="276">20 ms</text><text class="svg-sub" x="462" y="276">20 ms</text><text class="svg-sub" x="762" y="276">20 ms</text>
+        </g>
+        <g id="xmarks"></g>
+        <g id="packets"></g>
+      </svg>
+      <div class="legend">
+        <span><i style="background:var(--hit)"></i>cache hit</span>
+        <span><i style="background:var(--miss)"></i>cache miss, fetched from origin</span>
+        <span><i style="background:var(--stale)"></i>stale copy served</span>
+        <span><i style="background:var(--down)"></i>CDN down, fell back to origin</span>
+        <span>Dashed lines: direct path to origin (used only when the CDN fails)</span>
+      </div>
+
+      <div class="caches" id="caches"></div>
+
+      <div class="origin-panel">
+        <strong>Origin files</strong>
+        <span id="originFiles" style="display:flex;flex-wrap:wrap;gap:6px"></span>
+        <button id="update">Upload a new version of the selected file</button>
+        <button id="purge">Invalidate selected file (vendor API)</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><b id="sReq">0</b><span>requests</span></div>
+        <div class="stat"><b id="sHit">0%</b><span>cache hit ratio</span></div>
+        <div class="stat"><b id="sOrigin">0</b><span>trips to origin</span></div>
+        <div class="stat"><b id="sLat">0 ms</b><span>average wait</span></div>
+        <div class="stat"><b id="sStale">0</b><span>stale files served</span></div>
+      </div>
+      <p class="book">Clock: 1 real second = 10 simulated seconds, so a 120 s TTL lasts 12 real seconds. Latencies are round-trip times picked to be realistic, not measured.</p>
+    </section>
+
+    <aside>
+      <div class="panel">
+        <h2>Missions</h2>
+        <ul class="missions" id="missions"></ul>
+      </div>
+      <div class="panel">
+        <h2>What just happened</h2>
+        <ul class="log" id="log" aria-live="polite"></ul>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  const SIM_RATE = 10;                       // simulated seconds per real second
+  const EDGES = {
+    sfo: { name: 'San Francisco', toOrigin: 70,  direct: 75 },
+    fra: { name: 'Frankfurt',     toOrigin: 90,  direct: 95 },
+    bom: { name: 'Mumbai',        toOrigin: 190, direct: 200 },
+  };
+  const USER_TO_EDGE = 20, DETECT_FAIL = 150;
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const LEG_MS = reduceMotion ? 1 : 520;
+
+  const MISSIONS = [
+    { id: 'miss',   title: 'Cause a cache miss', hint: 'Request any file once. The edge is empty, so it must go to the origin (book steps 1–4).' },
+    { id: 'hit',    title: 'Get a cache hit', hint: 'Request the same file from the same city again (book steps 5–6). Notice how much faster it is.' },
+    { id: 'region', title: 'See that each edge has its own cache', hint: 'Request a file in San Francisco, then the same file in Mumbai. Mumbai still misses.' },
+    { id: 'expire', title: 'Watch a TTL run out', hint: 'Set TTL to 30 s, request a file, and wait about 3 real seconds.' },
+    { id: 'stale',  title: 'Serve stale content', hint: 'Cache a file, then upload a new version on the origin, then request it again. The edge still has the old copy.' },
+    { id: 'purge',  title: 'Fix staleness with invalidation', hint: 'Press "Invalidate selected file". The next request is a miss and gets the new version.' },
+    { id: 'version',title: 'Fix staleness with versioned URLs', hint: 'Turn on "Versioned URLs", upload a new version, and request it. The URL becomes logo.png?v=3, a new cache key.' },
+    { id: 'down',   title: 'Survive a CDN outage', hint: 'Press "Take CDN down" and send a request. The client notices and goes straight to the origin.' },
+  ];
+
+  const $ = s => document.querySelector(s);
+  const state = {};
+  function reset() {
+    Object.assign(state, {
+      t: 0, ttl: +$('#ttl').value, versioning: false, down: false,
+      origin: { 'logo.png': 1, 'app.js': 1, 'hero.jpg': 1 },
+      caches: { sfo: new Map(), fra: new Map(), bom: new Map() },
+      stats: { req: 0, hit: 0, origin: 0, lat: 0, stale: 0 },
+      done: new Set(), seenRegions: {}, staleSeen: false, autoTimer: state.autoTimer,
+    });
+    $('#versioning').setAttribute('aria-pressed', 'false');
+    $('#outage').setAttribute('aria-pressed', 'false');
+    document.querySelectorAll('.node.edge').forEach(n => n.classList.remove('down'));
+    $('#xmarks').innerHTML = ''; $('#packets').innerHTML = ''; $('#log').innerHTML = '';
+    log('info', 'Fresh start. All edge caches are empty. Origin has v1 of every file.');
+    renderAll();
+  }
+
+  const keyFor = file => state.versioning ? `${file}?v=${state.origin[file]}` : file;
+  const baseOf = key => key.split('?')[0];
+  const fmtT = s => `t=${Math.floor(s)}s`;
+
+  function log(kind, msg) {
+    const li = document.createElement('li');
+    li.className = kind;
+    li.textContent = `${fmtT(state.t)}  ${msg}`;
+    const ul = $('#log'); ul.prepend(li);
+    while (ul.children.length > 60) ul.lastChild.remove();
+  }
+  function complete(id) {
+    if (state.done.has(id)) return;
+    state.done.add(id); renderMissions();
+    const m = MISSIONS.find(x => x.id === id);
+    log('info', `Mission done: ${m.title}`);
+  }
+
+  function packet(pathId, color, reverse) {
+    return new Promise(res => {
+      const path = document.getElementById(pathId);
+      const len = path.getTotalLength();
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('r', 8); c.setAttribute('fill', color);
+      $('#packets').appendChild(c);
+      const t0 = performance.now();
+      (function step(now) {
+        const p = Math.min(1, (now - t0) / LEG_MS);
+        const pt = path.getPointAtLength((reverse ? 1 - p : p) * len);
+        c.setAttribute('cx', pt.x); c.setAttribute('cy', pt.y);
+        if (p < 1) requestAnimationFrame(step); else { c.remove(); res(); }
+      })(t0);
+    });
+  }
+  function flash(nodeId, cls) {
+    const n = document.getElementById(nodeId);
+    n.classList.add(cls); setTimeout(() => n.classList.remove(cls), 700);
+  }
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  async function request(region, file) {
+    const e = EDGES[region], key = keyFor(file);
+    state.stats.req++;
+    if (state.down) {
+      await packet(`u-${region}`, css('--down'), true);
+      flash(`n-${region}`, 'flash-miss');
+      await packet(`f-${region}`, css('--down'), false);
+      flash('n-origin', 'flash-miss');
+      state.stats.origin++;
+      await packet(`f-${region}`, css('--down'), true);
+      const lat = DETECT_FAIL + e.direct;
+      state.stats.lat += lat;
+      log('down', `${e.name}: CDN edge did not answer. Client fell back to origin for ${key} (${lat} ms incl. ${DETECT_FAIL} ms to detect the failure).`);
+      complete('down'); renderAll(); return;
+    }
+    await packet(`u-${region}`, css('--accent'), true);
+    const cache = state.caches[region];
+    const entry = cache.get(key);
+    if (entry && entry.expires > state.t) {
+      const stale = entry.version < state.origin[file];
+      flash(`n-${region}`, stale ? 'flash-stale' : 'flash-hit');
+      await packet(`u-${region}`, css(stale ? '--stale' : '--hit'), false);
+      state.stats.hit++; state.stats.lat += USER_TO_EDGE;
+      if (stale) {
+        state.stats.stale++; state.staleSeen = true;
+        log('stale', `${e.name}: HIT ${key} but it is v${entry.version}. Origin has v${state.origin[file]}. User sees the old file for ${Math.ceil(entry.expires - state.t)} more seconds.`);
+        complete('stale');
+      } else {
+        log('hit', `${e.name}: HIT ${key} v${entry.version}, served from the edge in ${USER_TO_EDGE} ms.`);
+        complete('hit');
+      }
+    } else {
+      flash(`n-${region}`, 'flash-miss');
+      await packet(`e-${region}`, css('--miss'), false);
+      flash('n-origin', 'flash-miss');
+      state.stats.origin++;
+      const v = state.origin[file];
+      await packet(`e-${region}`, css('--miss'), true);
+      cache.set(key, { version: v, cachedAt: state.t, expires: state.t + state.ttl, ttl: state.ttl });
+      await packet(`u-${region}`, css('--miss'), false);
+      const lat = USER_TO_EDGE + e.toOrigin;
+      state.stats.lat += lat;
+      log('miss', `${e.name}: MISS ${key}. Edge fetched v${v} from origin (header Cache-Control: max-age=${state.ttl}), cached it, and returned it in ${lat} ms.`);
+      complete('miss');
+      if (state.versioning && key.includes('?v=') && state.origin[file] > 1) complete('version');
+      if (state.purgedFresh && state.purgedFresh === file) { complete('purge'); state.purgedFresh = null; }
+      state.seenRegions[file] = state.seenRegions[file] || new Set();
+      state.seenRegions[file].add(region);
+      const others = Object.keys(EDGES).filter(r => r !== region && state.caches[r].has(key));
+      if (others.length) complete('region');
+    }
+    renderAll();
+  }
+
+  function tick(dtReal) {
+    state.t += dtReal * SIM_RATE;
+    for (const [region, cache] of Object.entries(state.caches)) {
+      for (const [key, en] of cache) {
+        if (en.expires <= state.t) {
+          cache.delete(key);
+          log('info', `${EDGES[region].name}: ${key} TTL ran out, removed from edge cache. Next request will be a miss.`);
+          complete('expire');
+        }
+      }
+    }
+    renderCaches();
+  }
+
+  function renderCaches() {
+    const html = Object.entries(state.caches).map(([region, cache]) => {
+      const items = [...cache].map(([key, en]) => {
+        const left = Math.max(0, en.expires - state.t);
+        const pct = (left / en.ttl) * 100;
+        const stale = en.version < state.origin[baseOf(key)];
+        return `<li class="entry"><div class="row"><span>${key} v${en.version}</span><span>${Math.ceil(left)}s</span></div>
+          ${stale ? '<span class="stalebadge">stale: origin has newer</span>' : ''}
+          <div class="bar"><i style="width:${pct}%;background:var(${stale ? '--stale' : '--hit'})"></i></div></li>`;
+      }).join('');
+      return `<div class="cache"><h3>${EDGES[region].name} edge cache <span>${cache.size} item${cache.size === 1 ? '' : 's'}</span></h3>
+        <ul class="entries">${items || '<li class="empty">Empty. The next request here will be a miss.</li>'}</ul></div>`;
+    }).join('');
+    $('#caches').innerHTML = html;
+  }
+  function renderMissions() {
+    $('#missions').innerHTML = MISSIONS.map(m => `<li class="mission ${state.done.has(m.id) ? 'done' : ''}">
+      <span class="tick">${state.done.has(m.id) ? '✓' : ''}</span>
+      <div><div class="mtitle">${m.title}</div><div class="mhint">${m.hint}</div></div></li>`).join('');
+  }
+  function renderAll() {
+    renderCaches(); renderMissions();
+    $('#originFiles').innerHTML = Object.entries(state.origin).map(([f, v]) => `<span class="file-chip">${f} v${v}</span>`).join('');
+    const s = state.stats;
+    $('#sReq').textContent = s.req;
+    $('#sHit').textContent = s.req ? Math.round(100 * s.hit / s.req) + '%' : '0%';
+    $('#sOrigin').textContent = s.origin;
+    $('#sLat').textContent = s.req ? Math.round(s.lat / s.req) + ' ms' : '0 ms';
+    $('#sStale').textContent = s.stale;
+  }
+
+  document.querySelectorAll('[data-req]').forEach(b => b.addEventListener('click', () => request(b.dataset.req, $('#file').value)));
+  $('#ttl').addEventListener('input', e => { state.ttl = +e.target.value; $('#ttlOut').textContent = `${state.ttl} s`; });
+  $('#update').addEventListener('click', () => {
+    const f = $('#file').value; state.origin[f]++;
+    log('info', `Origin: uploaded ${f} v${state.origin[f]}. Edges that still hold an older copy will keep serving it until TTL runs out or you invalidate it.`);
+    renderAll();
+  });
+  $('#purge').addEventListener('click', () => {
+    const f = $('#file').value; let n = 0;
+    for (const [region, cache] of Object.entries(state.caches)) for (const key of [...cache.keys()]) {
+      if (baseOf(key) === f) { cache.delete(key); n++; flash(`n-${region}`, 'flash-purge'); }
+    }
+    log('info', `Invalidation API: removed ${f} from ${n} edge cache entr${n === 1 ? 'y' : 'ies'}.`);
+    if (n && state.staleSeen) state.purgedFresh = f;
+    renderAll();
+  });
+  $('#versioning').addEventListener('click', e => {
+    state.versioning = !state.versioning; e.target.setAttribute('aria-pressed', state.versioning);
+    log('info', state.versioning ? 'Versioned URLs on. The page now asks for logo.png?v=N. A new version means a new URL, so the edge treats it as a different file.' : 'Versioned URLs off. Plain file names are used as cache keys.');
+  });
+  $('#outage').addEventListener('click', e => {
+    state.down = !state.down; e.target.setAttribute('aria-pressed', state.down);
+    e.target.textContent = state.down ? 'Bring CDN back' : 'Take CDN down';
+    document.querySelectorAll('.node.edge').forEach(n => n.classList.toggle('down', state.down));
+    $('#xmarks').innerHTML = state.down ? ['150', '450', '750'].map(x => `<path class="xmark" d="M${x - 12} 198 l24 24 M${+x + 12} 198 l-24 24"></path>`).join('') : '';
+    log('down', state.down ? 'CDN outage started. Edges stop answering.' : 'CDN is back.');
+  });
+  $('#auto').addEventListener('click', e => {
+    const on = e.target.getAttribute('aria-pressed') !== 'true';
+    e.target.setAttribute('aria-pressed', on);
+    clearInterval(state.autoTimer); state.autoTimer = null;
+    if (on) state.autoTimer = setInterval(() => {
+      const regions = Object.keys(EDGES), r = regions[Math.floor(Math.random() * 3)];
+      const x = Math.random(), f = x < .6 ? 'logo.png' : x < .9 ? 'app.js' : 'hero.jpg';
+      request(r, f);
+    }, 900);
+  });
+  $('#reset').addEventListener('click', () => {
+    clearInterval(state.autoTimer); state.autoTimer = null; $('#auto').setAttribute('aria-pressed', 'false');
+    $('#outage').textContent = 'Take CDN down'; reset();
+  });
+
+  reset();
+  let last = performance.now();
+  (function loop(now) { tick(Math.min(0.25, (now - last) / 1000)); last = now; requestAnimationFrame(loop); })(last);
+})();
+</script>

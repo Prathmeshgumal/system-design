@@ -1,0 +1,480 @@
+<title>CDN, Start Here</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column (~68ch) that widens for two interactive figures: the latency map and the book's 6-step workflow. */
+:root {
+  --bg: #eef2f7; --surface: #ffffff; --surface-2: #f6f8fb; --ink: #142033; --muted: #586579; --line: #d3dae4; --grid: #c9d2de;
+  --accent: #2f55e4; --hit: #0b8f6c; --miss: #c27800; --origin: #cf4a14;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c121c; --surface: #141c29; --surface-2: #1a2433; --ink: #e5eaf2; --muted: #95a2b6; --line: #2a374b; --grid: #2c3a50;
+  --accent: #8aa4ff; --hit: #3fd0a6; --miss: #f2b443; --origin: #ff8a57; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0c121c; --surface: #141c29; --surface-2: #1a2433; --ink: #e5eaf2; --muted: #95a2b6; --line: #2a374b; --grid: #2c3a50;
+  --accent: #8aa4ff; --hit: #3fd0a6; --miss: #f2b443; --origin: #ff8a57; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 18px/1.6 var(--body) }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 64px }
+.prose { max-width: 68ch }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.015em; line-height: 1.15 }
+h1 { font-size: clamp(2.1rem, 6vw, 3.4rem) }
+h2 { font-size: clamp(1.4rem, 3vw, 1.85rem); margin-bottom: 10px }
+h3 { font-size: 1.1rem }
+p { margin: 0 0 12px }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 10px }
+.lede { font-size: 1.2rem; color: var(--muted); margin-top: 14px }
+section { margin-top: 56px }
+.num { font: 600 13px var(--mono); color: var(--accent); display: block; margin-bottom: 6px }
+code, .mono { font-family: var(--mono); font-size: .88em; font-variant-numeric: tabular-nums }
+code { background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px }
+a { color: var(--accent) }
+
+.analogy { margin-top: 24px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px }
+@media (max-width: 640px) { .analogy { grid-template-columns: minmax(0, 1fr) } }
+.analogy div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; font-size: 16px }
+.analogy b { font-family: var(--display); display: block; margin-bottom: 4px }
+
+.figure { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 18px; min-width: 0 }
+.figure svg { width: 100%; height: auto; display: block }
+.figcap { font-size: 14px; color: var(--muted); margin-top: 10px }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px }
+label { font-size: 15px; color: var(--muted) }
+select, button { font: 600 15px var(--body); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; padding: 8px 12px }
+button { cursor: pointer }
+button:hover { border-color: var(--accent) }
+button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent) }
+button:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+button:disabled { opacity: .45; cursor: default }
+
+.city { fill: var(--muted) } .city-label { fill: var(--muted); font: 13px var(--body) }
+.edge-dot { fill: var(--accent) } .origin-dot { fill: var(--origin) } .user-dot { fill: var(--ink) }
+.gridline { stroke: var(--grid); stroke-width: 1 }
+.route-origin { stroke: var(--origin); stroke-width: 3; fill: none; stroke-dasharray: 8 6 }
+.route-edge { stroke: var(--hit); stroke-width: 4; fill: none }
+
+.race { display: grid; gap: 10px; margin-top: 14px }
+.lane { display: grid; grid-template-columns: 150px minmax(0, 1fr) 90px; gap: 10px; align-items: center; font-size: 15px }
+@media (max-width: 560px) { .lane { grid-template-columns: minmax(0, 1fr) 80px } .lane .track { grid-column: 1 / -1; grid-row: 2 } }
+.track { height: 14px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; overflow: hidden }
+.track i { display: block; height: 100%; width: 0 }
+.lane .t { text-align: right; font: 600 15px var(--mono); font-variant-numeric: tabular-nums }
+
+table { width: 100%; border-collapse: collapse; font-size: 16px }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted) }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-top: 14px }
+
+.node { fill: var(--surface-2); stroke: var(--line); stroke-width: 2 }
+.node.active { stroke: var(--accent); stroke-width: 3 }
+.svg-text { fill: var(--ink); font: 600 16px var(--body) }
+.svg-sub { fill: var(--muted); font: 12px var(--mono) }
+.path { stroke: var(--line); stroke-width: 3; fill: none }
+.path.active { stroke: var(--accent) }
+.steps { display: flex; gap: 6px; flex-wrap: wrap }
+.steps button { width: 36px; padding: 6px 0; font-family: var(--mono) }
+.steps button[aria-current="step"] { background: var(--accent); color: var(--bg); border-color: var(--accent) }
+.stepcap { margin-top: 12px; min-height: 5.5em }
+.stepcap b { font-family: var(--display) }
+.header-line { display: block; margin-top: 6px; font: 13px var(--mono); color: var(--muted) }
+
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px }
+@media (max-width: 680px) { .cards { grid-template-columns: minmax(0, 1fr) } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; font-size: 16px; min-width: 0 }
+.card h3 { margin-bottom: 6px }
+.card .try { display: block; margin-top: 8px; font-size: 14px; color: var(--muted) }
+
+dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 18px; margin: 14px 0 0; font-size: 16px }
+dt { font: 600 14px var(--mono); color: var(--accent) }
+dd { margin: 0 }
+@media (max-width: 560px) { dl { grid-template-columns: minmax(0, 1fr) } dd { margin-bottom: 8px } }
+
+.next { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px }
+@media (max-width: 640px) { .next { grid-template-columns: minmax(0, 1fr) } }
+.next a { display: block; text-decoration: none; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px }
+.next a:hover { border-color: var(--accent) }
+.next b { font-family: var(--display); font-size: 1.15rem; display: block; color: var(--accent) }
+.doubts { display: grid; gap: 16px; margin-top: 16px }
+.doubt { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; font-size: 16px; min-width: 0 }
+.doubt h3 { font-size: 1.2rem; margin-bottom: 8px }
+.doubt p { max-width: 75ch }
+.doubt .table-wrap { margin: 12px 0; background: var(--surface-2) }
+.doubt td:first-child { font-weight: 600; white-space: nowrap }
+.memo { margin: 12px 0 0; padding: 10px 14px; background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0 }
+.flow { margin: 12px 0; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; font: 13px/1.6 var(--mono); overflow-x: auto }
+.mermaid { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; overflow-x: auto; margin-top: 16px }
+</style>
+
+<div class="wrap">
+  <header class="prose">
+    <span class="eyebrow">Chapter 1 · Scale from zero to millions · CDN</span>
+    <h1>CDN, Start Here</h1>
+    <p class="lede">A CDN (content delivery network) is a set of cache servers spread around the world. Each one keeps copies of your site's static files, so a user downloads them from a server nearby instead of from your own server, which may be on another continent.</p>
+  </header>
+
+  <div class="analogy">
+    <div><b>Without a CDN</b>Every customer in the world orders from one warehouse in Virginia. A customer in Mumbai waits for the parcel to cross the planet, every time.</div>
+    <div><b>With a CDN</b>Popular items are stocked in local warehouses in many cities. The Mumbai customer gets theirs from the Mumbai warehouse. Only items it has never stocked come from Virginia.</div>
+  </div>
+
+  <section>
+    <div class="prose">
+      <span class="num">01 · The problem</span>
+      <h2>Distance is the slow part</h2>
+      <p>You already know a cache from earlier in the chapter: keep a copy close by so you don't redo slow work. A CDN uses the same idea, but the slow thing it avoids is <em>distance</em>. Data travels through fibre at about 200,000 km per second. That sounds fast, but a webpage needs many round trips, and each one pays the full distance there and back.</p>
+      <p>Pick a city to be the user. The site's origin server is in Virginia, USA.</p>
+    </div>
+    <div class="figure">
+      <div class="controls">
+        <label for="userCity">User in</label>
+        <select id="userCity"></select>
+        <button class="primary" id="raceBtn">Race the page load</button>
+      </div>
+      <svg id="map" viewBox="0 0 1000 470" role="img" aria-label="World map showing the user, the origin in Virginia, and the nearest CDN edge"></svg>
+      <div class="race">
+        <div class="lane"><span>From origin <span class="mono" id="kmO"></span></span><div class="track"><i id="barO" style="background:var(--origin)"></i></div><span class="t" id="tO">–</span></div>
+        <div class="lane"><span>From nearest edge <span class="mono" id="kmE"></span></span><div class="track"><i id="barE" style="background:var(--hit)"></i></div><span class="t" id="tE">–</span></div>
+      </div>
+      <p class="figcap" id="mapNote"></p>
+      <p class="figcap">Rough model: round trip = distance × 2 × 1.5 (cables don't run straight) ÷ 200 km per ms. Loading the static files on a typical page takes about 10 round trips: 3 to set up a secure connection, then about 7 rounds to fetch around 40 files over 6 parallel connections. Real numbers vary, but the gap is real.</p>
+    </div>
+  </section>
+
+  <section class="prose">
+    <span class="num">02 · Scope</span>
+    <h2>What a CDN keeps: static files</h2>
+    <p>The book focuses on <strong>static content</strong>: files that are the same for every user. Content built per user is <strong>dynamic</strong>. Caching dynamic content on a CDN exists, but the book calls it out of scope.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Static (put on the CDN)</th><th>Dynamic (served by your web servers)</th></tr></thead>
+        <tbody>
+          <tr><td>Images, logos, icons</td><td>Your cart, your feed, your inbox</td></tr>
+          <tr><td>CSS stylesheets</td><td>Search results for what you typed</td></tr>
+          <tr><td>JavaScript bundles</td><td>API responses like account balance</td></tr>
+          <tr><td>Videos, fonts, downloadable files</td><td>Pages that depend on login cookies</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="prose">
+      <span class="num">03 · How it works</span>
+      <h2>The book's six steps, one at a time</h2>
+      <p>This is Figure 1-10 from the book. Two users near the same edge server ask for the same image. Step through it and watch the edge's cache.</p>
+    </div>
+    <div class="figure">
+      <div class="controls">
+        <button id="prev">Back</button>
+        <div class="steps" id="stepBtns" role="group" aria-label="Steps"></div>
+        <button class="primary" id="next">Next step</button>
+      </div>
+      <svg viewBox="0 0 800 300" role="img" aria-label="User A and User B, a CDN edge server with a cache, and the origin server">
+        <path class="path" id="pA" d="M140 80 L330 140"></path>
+        <path class="path" id="pB" d="M140 230 L330 170"></path>
+        <path class="path" id="pO" d="M470 155 L630 155"></path>
+        <rect class="node" id="nA" x="30" y="55" width="110" height="50" rx="25"></rect>
+        <text class="svg-text" x="85" y="86" text-anchor="middle">User A</text>
+        <rect class="node" id="nB" x="30" y="205" width="110" height="50" rx="25"></rect>
+        <text class="svg-text" x="85" y="236" text-anchor="middle">User B</text>
+        <rect class="node" id="nE" x="330" y="95" width="140" height="120" rx="10"></rect>
+        <text class="svg-text" x="400" y="122" text-anchor="middle">CDN edge</text>
+        <text class="svg-sub" x="400" y="142" text-anchor="middle">cache</text>
+        <rect x="345" y="152" width="110" height="48" rx="6" fill="var(--surface)" stroke="var(--line)"></rect>
+        <text id="cacheTxt" class="svg-sub" x="400" y="172" text-anchor="middle">empty</text>
+        <rect x="355" y="182" width="90" height="7" rx="3" fill="var(--line)"></rect>
+        <rect id="ttlBar" x="355" y="182" width="0" height="7" rx="3" fill="var(--hit)"></rect>
+        <rect class="node" id="nO" x="630" y="115" width="140" height="80" rx="10" style="stroke:var(--origin)"></rect>
+        <text class="svg-text" x="700" y="148" text-anchor="middle">Origin</text>
+        <text class="svg-sub" x="700" y="168" text-anchor="middle">web server / S3</text>
+        <g id="pkts"></g>
+      </svg>
+      <div class="stepcap" id="stepCap" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="prose">
+      <span class="num">04 · The bigger picture</span>
+      <h2>Where the CDN sits in the design</h2>
+      <p>This is Figure 1-11. The browser now makes two kinds of requests. Static files go to the CDN. Everything else goes through the load balancer to your web servers, which use the cache tier you already studied to protect the database. So the CDN takes load off the <em>web servers</em>, and the cache takes load off the <em>database</em>.</p>
+    </div>
+<pre class="mermaid">
+flowchart LR
+  U["User<br/>browser or app"] -->|"JS, CSS, images"| CDN["CDN edge<br/>near the user"]
+  CDN -.->|"only on a miss"| S3["Origin<br/>web server or S3"]
+  U -->|"pages and API calls"| LB["Load balancer"]
+  LB --> W1["Web server 1"]
+  LB --> W2["Web server 2"]
+  W1 --> C[("Cache tier")]
+  W2 --> C
+  W1 --> DB[("Database")]
+  W2 --> DB
+</pre>
+  </section>
+
+  <section>
+    <div class="prose">
+      <span class="num">05 · Trade-offs</span>
+      <h2>Four things to think about</h2>
+      <p>The book lists these under "Considerations of using a CDN". Interviewers like to ask about them because they show you understand the costs, not just the benefits. Each one has a mission in the lab.</p>
+    </div>
+    <div class="cards">
+      <div class="card"><h3>Cost</h3>A CDN is a paid third-party service, charged for data moving in and out. A file that is rarely requested will usually have expired before the next person asks, so you pay without getting cache hits. Keep rarely used files off it.</div>
+      <div class="card"><h3>Cache expiry (TTL)</h3>Too long, and users see an old file after you change it. Too short, and edges keep going back to the origin, which loses most of the benefit. Pick the TTL based on how often the file changes.<span class="try">Lab missions 4 and 5</span></div>
+      <div class="card"><h3>CDN fallback</h3>CDNs can go down too. Your app should notice that the CDN is not answering and fetch the files from the origin instead. Slower, but the site still works.<span class="try">Lab mission 8</span></div>
+      <div class="card"><h3>Invalidating files</h3>To replace a file before its TTL runs out, either call the CDN vendor's <strong>invalidation API</strong> to drop it, or use <strong>object versioning</strong>: change the URL to <code>image.png?v=2</code>. A new URL is a new cache key, so every edge fetches the new file.<span class="try">Lab missions 6 and 7</span></div>
+    </div>
+  </section>
+
+  <section class="prose">
+    <span class="num">06 · Vocabulary</span>
+    <h2>Words you will hear</h2>
+    <dl>
+      <dt>Origin</dt><dd>Your own server or storage (for example Amazon S3) that holds the real copy of every file.</dd>
+      <dt>Edge / PoP</dt><dd>A CDN server in a particular city. PoP means "point of presence". Big CDNs have hundreds.</dd>
+      <dt>Cache hit</dt><dd>The edge already has a fresh copy and returns it right away.</dd>
+      <dt>Cache miss</dt><dd>The edge has no copy, or its copy expired, so it fetches from the origin first.</dd>
+      <dt>TTL</dt><dd>Time to live. How long the edge may keep a copy. The origin sets it, usually with <code>Cache-Control: max-age=3600</code> (one hour).</dd>
+      <dt>Stale</dt><dd>A cached copy that is older than the file on the origin.</dd>
+      <dt>Invalidate</dt><dd>Tell the CDN to delete its copy now, before the TTL runs out.</dd>
+      <dt>CDN domain</dt><dd>The URL users load files from, such as <code>mysite.cloudfront.net/logo.jpg</code> on Amazon CloudFront or <code>mysite.akamai.com/...</code> on Akamai.</dd>
+    </dl>
+  </section>
+
+  <section>
+    <div class="prose">
+      <span class="num">07 · Doubts</span>
+      <h2>Questions from our doubt session</h2>
+      <p>These came up while learning this topic. Each one is a common place to get confused, and a common interview follow-up.</p>
+    </div>
+    <div class="doubts">
+      <article class="doubt">
+        <h3>How is a CDN different from a server?</h3>
+        <p><strong>A CDN is servers too.</strong> The difference is their job. Your server (the <em>origin</em>) is yours, sits in one or a few places, holds the real copy of everything, and runs your code: login, cart, database queries. CDN edge servers belong to a vendor, sit in hundreds of cities, hold only <em>copies</em> of static files, and run none of your logic. On a miss, they copy the file from your origin.</p>
+        <p class="memo">Origin = the publisher with the master copy. CDN = bookshops in every city stocking copies. A CDN can't work without an origin.</p>
+      </article>
+
+      <article class="doubt">
+        <h3>How is a CDN different from a cache?</h3>
+        <p><strong>A CDN is a cache</strong>, one kind of it. Chapter 1 adds two caches that do different jobs on opposite sides of your web server.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th></th><th>Cache tier (Redis, Memcached)</th><th>CDN</th></tr></thead>
+          <tbody>
+            <tr><td>Stores</td><td>Data: query results, profiles</td><td>Files: images, CSS, JS, video</td></tr>
+            <tr><td>Sits</td><td>In your data centre, next to web servers</td><td>Near users, in many cities</td></tr>
+            <tr><td>Called by</td><td>Your web server code</td><td>The user's browser</td></tr>
+            <tr><td>Protects</td><td>The database</td><td>Web servers, and users from distance</td></tr>
+            <tr><td>Filled by</td><td>Your code, after a database read</td><td>The edge itself, on a miss</td></tr>
+          </tbody>
+        </table></div>
+<pre class="flow">User ──► CDN (files, near the user)
+  │
+  └──► Load balancer ──► Web server ──► Cache tier (data) ──► Database</pre>
+        <p class="memo">A CDN caches files near users, so web servers do less work. A cache tier caches data near the web servers, so the database does less work.</p>
+      </article>
+
+      <article class="doubt">
+        <h3>What is TTL?</h3>
+        <p><strong>Time To Live</strong>: an expiry timer on a cached copy. The origin sets it with a header such as <code>Cache-Control: max-age=3600</code> (one hour). Until the timer runs out, the edge serves its copy without asking the origin. After that, it throws the copy away and fetches a fresh one on the next request.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Time</th><th>At the Mumbai edge, TTL = 1 hour</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">10:00</td><td>Miss. Fetch from origin, store copy until 11:00</td></tr>
+            <tr><td class="mono">10:05</td><td>Hit. Served from the edge</td></tr>
+            <tr><td class="mono">11:00</td><td>TTL runs out. Copy removed</td></tr>
+            <tr><td class="mono">11:02</td><td>Miss. Fetch fresh copy, store until 12:02</td></tr>
+          </tbody>
+        </table></div>
+        <p class="memo">Too long: users see an old file after you change it. Too short: most requests go back to the origin. Files that rarely change get long TTLs.</p>
+      </article>
+
+      <article class="doubt">
+        <h3>TTL is 1 hour and I change the file after 5 minutes. Do users see the old file for 55 minutes?</h3>
+        <p>Yes, unless you do something. <strong>TTL doesn't prevent old data. It limits how long old data can last.</strong> The edge never checks whether the origin changed. To make a change show up early, there are two options:</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th></th><th>Invalidate (purge)</th><th>Versioned URL</th></tr></thead>
+          <tbody>
+            <tr><td>How</td><td>Deploy script calls the vendor API: "delete /logo.png everywhere"</td><td>New file gets a new URL: <code>logo.png?v=2</code> or <code>logo.7be240.png</code></td></tr>
+            <tr><td>Speed</td><td>Seconds to minutes to reach every edge</td><td>Instant. No cache has the new URL yet</td></tr>
+            <tr><td>Browser caches</td><td>Not cleared. Users may still have the old copy</td><td>Covered. The old URL is no longer requested</td></tr>
+            <tr><td>Origin load</td><td>Every edge misses at once after a purge</td><td>Normal</td></tr>
+            <tr><td>Cost</td><td>Vendors limit or charge for purges</td><td>Free</td></tr>
+          </tbody>
+        </table></div>
+        <p>With versioned URLs you can give static files a very long TTL (even a year), because a change always means a new name. The HTML page can't be versioned since users type <code>mysite.com</code>, so it gets a short TTL or skips the CDN, and it points to the latest file names.</p>
+        <p class="memo">Interview line: "TTL bounds staleness. For instant updates I'd use versioned file names with a long TTL, keep HTML on a short TTL, and use the purge API only for emergencies."</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <div class="prose">
+      <span class="num">08 · Practise</span>
+      <h2>Now try it yourself</h2>
+    </div>
+    <div class="next">
+      <a href="https://claude.ai/artifact/LzS5LwnfQudRThqpaQAkpV"><b>CDN Request Lab</b>Send requests from three cities, change the TTL, update files, take the CDN down. Eight missions to complete.</a>
+      <a href="https://claude.ai/artifact/BSyXVaMyiDYYf4oaoCbuot"><b>CDN Self-Check</b>Twelve interview-style questions with explanations, plus a 60-second answer you can say in an interview.</a>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+
+  /* ---------- Map ---------- */
+  const ORIGIN = { name: 'Virginia (origin)', lat: 39.04, lon: -77.49 };
+  const EDGES = [
+    ['San Francisco', 37.77, -122.42], ['New York', 40.71, -74.0], ['São Paulo', -23.55, -46.63],
+    ['London', 51.5, -0.12], ['Frankfurt', 50.11, 8.68], ['Johannesburg', -26.2, 28.05],
+    ['Mumbai', 19.08, 72.88], ['Singapore', 1.35, 103.82], ['Tokyo', 35.68, 139.69], ['Sydney', -33.87, 151.21],
+  ].map(([name, lat, lon]) => ({ name, lat, lon }));
+  const USERS = [
+    ['Mumbai', 19.08, 72.88], ['Pune', 18.52, 73.86], ['Delhi', 28.61, 77.21], ['Bengaluru', 12.97, 77.59],
+    ['London', 51.5, -0.12], ['Berlin', 52.52, 13.4], ['Lagos', 6.52, 3.38], ['Nairobi', -1.29, 36.82],
+    ['Tokyo', 35.68, 139.69], ['Sydney', -33.87, 151.21], ['Singapore', 1.35, 103.82],
+    ['São Paulo', -23.55, -46.63], ['Los Angeles', 34.05, -118.24], ['New York', 40.71, -74.0],
+  ].map(([name, lat, lon]) => ({ name, lat, lon }));
+  const proj = (lat, lon) => [((lon + 180) / 360) * 1000, ((80 - lat) / 140) * 470]; // crop poles
+  const km = (a, b) => {
+    const R = 6371, r = d => d * Math.PI / 180;
+    const dLat = r(b.lat - a.lat), dLon = r(b.lon - a.lon);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  };
+  const rtt = d => Math.max(4, Math.round((d * 2 * 1.5) / 200 + 2));
+  const ROUNDS = 10;
+
+  const map = document.getElementById('map');
+  for (let lon = -180; lon <= 180; lon += 30) { const [x] = proj(0, lon); el('line', { class: 'gridline', x1: x, y1: 0, x2: x, y2: 470 }, map); }
+  for (let lat = -60; lat <= 80; lat += 20) { const [, y] = proj(lat, 0); el('line', { class: 'gridline', x1: 0, y1: y, x2: 1000, y2: y }, map); }
+  const routes = el('g', {}, map);
+  EDGES.forEach(e => { const [x, y] = proj(e.lat, e.lon); el('circle', { class: 'edge-dot', cx: x, cy: y, r: 7 }, map); });
+  const [ox, oy] = proj(ORIGIN.lat, ORIGIN.lon);
+  el('rect', { class: 'origin-dot', x: ox - 9, y: oy - 9, width: 18, height: 18, rx: 3 }, map);
+  el('text', { class: 'city-label', x: ox + 12, y: oy + 22 }, map).textContent = 'Origin · Virginia';
+  const userG = el('g', {}, map);
+  const legend = el('g', {}, map);
+  [['edge-dot', 'CDN edge server', 'circle'], ['origin-dot', 'Origin server', 'rect'], ['user-dot', 'User', 'circle']].forEach(([c, t, shape], i) => {
+    const y = 440, x = 20 + i * 190;
+    if (shape === 'rect') el('rect', { class: c, x: x - 7, y: y - 7, width: 14, height: 14, rx: 2 }, legend);
+    else el('circle', { class: c, cx: x, cy: y, r: 7 }, legend);
+    el('text', { class: 'city-label', x: x + 14, y: y + 5 }, legend).textContent = t;
+  });
+
+  const sel = document.getElementById('userCity');
+  USERS.forEach((u, i) => { const o = document.createElement('option'); o.value = i; o.textContent = u.name; sel.appendChild(o); });
+  let current;
+  function arc(a, b) {
+    const [x1, y1] = proj(a.lat, a.lon), [x2, y2] = proj(b.lat, b.lon);
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 - Math.min(120, Math.hypot(x2 - x1, y2 - y1) * 0.25);
+    return `M${x1} ${y1} Q${mx} ${my} ${x2} ${y2}`;
+  }
+  function choose() {
+    const u = USERS[+sel.value];
+    const near = EDGES.map(e => ({ e, d: km(u, e) })).sort((a, b) => a.d - b.d)[0];
+    const dO = km(u, ORIGIN);
+    current = { u, near, dO, rO: rtt(dO), rE: rtt(near.d) };
+    routes.innerHTML = ''; userG.innerHTML = '';
+    el('path', { class: 'route-origin', d: arc(u, ORIGIN), id: 'routeO' }, routes);
+    if (near.d > 30) el('path', { class: 'route-edge', d: arc(u, near.e), id: 'routeE' }, routes);
+    const [ux, uy] = proj(u.lat, u.lon);
+    el('circle', { class: 'user-dot', cx: ux, cy: uy, r: 9, stroke: css('--surface'), 'stroke-width': 3 }, userG);
+    el('text', { class: 'city-label', x: ux + 12, y: uy - 10, style: `fill:${css('--ink')};font-weight:600` }, userG).textContent = `User · ${u.name}`;
+    document.getElementById('kmO').textContent = `${Math.round(dO).toLocaleString()} km`;
+    document.getElementById('kmE').textContent = `${Math.round(near.d).toLocaleString()} km`;
+    document.getElementById('mapNote').textContent =
+      `Nearest edge for ${u.name}: ${near.e.name}. One round trip to the origin takes about ${current.rO} ms; to the edge about ${current.rE} ms. ` +
+      `That is about ${Math.round(current.rO / current.rE)}× less waiting on every round trip.`;
+    ['O', 'E'].forEach(k => { document.getElementById('bar' + k).style.width = '0'; document.getElementById('t' + k).textContent = '–'; });
+  }
+  let raceId = 0;
+  function race() {
+    const id = ++raceId, { rO, rE } = current;
+    const totO = rO * ROUNDS, totE = rE * ROUNDS, scale = 2600 / totO; // slowest lane takes 2.6 s
+    const t0 = performance.now();
+    const pO = document.getElementById('routeO'), pE = document.getElementById('routeE');
+    const dotO = el('circle', { r: 7, fill: css('--origin') }, routes), dotE = pE ? el('circle', { r: 7, fill: css('--hit') }, routes) : null;
+    (function frame(now) {
+      if (id !== raceId) { dotO.remove(); dotE && dotE.remove(); return; }
+      const ms = reduce ? totO : (now - t0) / scale;
+      const set = (k, tot, path, dot, r) => {
+        const done = Math.min(ms, tot);
+        document.getElementById('bar' + k).style.width = (done / totO * 100) + '%';
+        document.getElementById('t' + k).textContent = `${(done / 1000).toFixed(2)} s`;
+        if (dot && path) {
+          if (ms >= tot) { dot.setAttribute('r', 0); return; }
+          const phase = (ms % r) / r, p = phase < .5 ? phase * 2 : 2 - phase * 2;
+          const pt = path.getPointAtLength(p * path.getTotalLength());
+          dot.setAttribute('cx', pt.x); dot.setAttribute('cy', pt.y);
+        }
+      };
+      set('O', totO, pO, dotO, rO); set('E', totE, pE, dotE, rE);
+      if (ms < totO) requestAnimationFrame(frame); else { dotO.remove(); dotE && dotE.remove(); }
+    })(t0);
+  }
+  sel.addEventListener('change', () => { raceId++; choose(); });
+  document.getElementById('raceBtn').addEventListener('click', race);
+  choose();
+
+  /* ---------- Six-step workflow ---------- */
+  const STEPS = [
+    { path: 'pA', dir: 1, nodes: ['nA', 'nE'], color: '--accent', cache: 0,
+      text: '<b>1. User A asks for image.png.</b> The URL points at the CDN, not your server, for example <code>https://mysite.cloudfront.net/image.png</code>. DNS sends User A to the nearest edge.',
+      hdr: 'GET /image.png  Host: mysite.cloudfront.net' },
+    { path: 'pO', dir: 1, nodes: ['nE', 'nO'], color: '--miss', cache: 0,
+      text: '<b>2. Cache miss.</b> The edge has never seen image.png, so it asks the origin for it. The origin can be your web server or storage like Amazon S3.',
+      hdr: 'edge → origin: GET /image.png' },
+    { path: 'pO', dir: -1, nodes: ['nO', 'nE'], color: '--miss', cache: 0,
+      text: '<b>3. The origin sends the file back</b>, along with a TTL header that says how long the edge may keep it.',
+      hdr: '200 OK   Cache-Control: max-age=3600   (TTL = 1 hour)' },
+    { path: 'pA', dir: -1, nodes: ['nE', 'nA'], color: '--miss', cache: 1,
+      text: '<b>4. The edge stores a copy and returns it to User A.</b> The copy stays in the edge cache until the TTL runs out. User A waited for the full trip to the origin this time.',
+      hdr: 'edge cache: image.png, expires in 3600 s' },
+    { path: 'pB', dir: 1, nodes: ['nB', 'nE'], color: '--accent', cache: .85,
+      text: '<b>5. User B asks for the same image.</b> User B is near the same edge, so the request lands there.',
+      hdr: 'GET /image.png  Host: mysite.cloudfront.net' },
+    { path: 'pB', dir: -1, nodes: ['nE', 'nB'], color: '--hit', cache: .85,
+      text: '<b>6. Cache hit.</b> The TTL has not run out, so the edge returns its copy straight away. The origin is not contacted. This is the whole point of a CDN: only the first user near each edge pays the long trip.',
+      hdr: 'X-Cache: Hit from cloudfront' },
+  ];
+  let step = 0;
+  const btns = document.getElementById('stepBtns');
+  STEPS.forEach((_, i) => { const b = document.createElement('button'); b.textContent = i + 1; b.addEventListener('click', () => go(i)); btns.appendChild(b); });
+  function pkt(pathId, dir, color) {
+    const path = document.getElementById(pathId), len = path.getTotalLength();
+    const c = el('circle', { r: 9, fill: color }, document.getElementById('pkts'));
+    const t0 = performance.now(), D = reduce ? 1 : 800;
+    (function f(now) {
+      const p = Math.min(1, (now - t0) / D), pt = path.getPointAtLength((dir > 0 ? p : 1 - p) * len);
+      c.setAttribute('cx', pt.x); c.setAttribute('cy', pt.y);
+      if (p < 1) requestAnimationFrame(f); else setTimeout(() => c.remove(), 250);
+    })(t0);
+  }
+  function go(i) {
+    step = Math.max(0, Math.min(STEPS.length - 1, i));
+    const s = STEPS[step];
+    document.querySelectorAll('.path, .node').forEach(n => n.classList.remove('active'));
+    document.getElementById(s.path).classList.add('active');
+    s.nodes.forEach(n => document.getElementById(n).classList.add('active'));
+    document.getElementById('cacheTxt').textContent = s.cache ? 'image.png' : 'empty';
+    document.getElementById('ttlBar').setAttribute('width', 90 * s.cache);
+    [...btns.children].forEach((b, k) => k === step ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current'));
+    document.getElementById('stepCap').innerHTML = s.text + `<span class="header-line">${s.hdr}</span>`;
+    document.getElementById('prev').disabled = step === 0;
+    document.getElementById('next').textContent = step === STEPS.length - 1 ? 'Start again' : 'Next step';
+    pkt(s.path, s.dir, css(s.color));
+  }
+  document.getElementById('prev').addEventListener('click', () => go(step - 1));
+  document.getElementById('next').addEventListener('click', () => go(step === STEPS.length - 1 ? 0 : step + 1));
+  go(0);
+})();
+</script>
